@@ -15,7 +15,15 @@ for (const [file, type] of [
   ['app.js', 'text/javascript; charset=utf-8'],
   ['merge.js', 'text/javascript; charset=utf-8'],
   ['styles.css', 'text/css; charset=utf-8'],
+  ['manifest.webmanifest', 'application/manifest+json; charset=utf-8'],
 ]) assets['/' + file] = { body: await readFile('src/' + file, 'utf8'), type };
+
+// Binary assets (PWA icons) are inlined as base64 and decoded by the Worker.
+for (const [file, type] of [
+  ['icon-192.png', 'image/png'],
+  ['icon-512.png', 'image/png'],
+  ['apple-touch-icon.png', 'image/png'],
+]) assets['/' + file] = { body: (await readFile('src/' + file)).toString('base64'), type, bin: true };
 
 await build({
   entryPoints: ['src/worker.js'],
