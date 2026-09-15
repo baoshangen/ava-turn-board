@@ -1,0 +1,22 @@
+{
+  "name": "ava-turn-board",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node --test tests/auth.mjs tests/setup-open.mjs",
+    "dev": "node build.mjs && wrangler dev",
+    "migrate:local": "wrangler d1 migrations apply ava-turn-board --local",
+    "migrate:remote": "wrangler d1 migrations apply ava-turn-board --remote",
+    "deploy": "node build.mjs && wrangler deploy"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.4",
+    "drizzle-orm": "0.44.5",
+    "esbuild": "0.25.12",
+    "wrangler": "^4.42.0"
+  },
+  "dependencies": {
+    "@noble/hashes": "1.8.0"
+  }
+}

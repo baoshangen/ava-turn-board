@@ -1,0 +1,6 @@
+node_modules/
+.sites-runtime/
+dist/
+.wrangler/
+.dev.vars
+*.log

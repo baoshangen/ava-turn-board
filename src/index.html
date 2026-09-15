@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>AVA Turn Board</title>
+  <meta name="description" content="Daily turn board for AVA Nail Bar" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">A</span>
+        <div>
+          <p>AVA Nail Bar</p>
+          <h1>Turn Board</h1>
+        </div>
+      </div>
+      <button class="settings-button" id="open-settings" type="button" aria-label="Open settings">
+        <span aria-hidden="true">⚙</span> Settings
+      </button>
+    </header>
+
+    <div class="sync-row"><span id="account-label"></span><button id="logout-button" type="button">Đăng xuất</button><span id="sync-status" role="status">Connecting…</span><a id="sign-in-again" href="/login" target="_blank" rel="noopener" hidden>Đăng nhập lại</a><button id="retry-sync" type="button" hidden>Retry</button></div>
+    <nav class="day-tabs" id="day-tabs" aria-label="Days of the week"></nav>
+
+    <section class="board-card" aria-labelledby="active-day-title">
+      <div class="board-heading">
+        <div>
+          <p class="eyebrow">Daily rotation</p>
+          <h2 id="active-day-title">Monday</h2>
+        </div>
+        <div class="board-actions"><div class="range-badge" id="range-badge">Turns 1–3 of 15</div><button id="toggle-turn-view" type="button" aria-pressed="false">Phóng to</button><button id="reset-day" type="button" disabled>Reset ngày này</button></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="turn-table">
+          <thead id="turn-head"></thead>
+          <tbody id="turn-body"></tbody>
+        </table>
+      </div>
+
+      <div class="turn-controls">
+        <button id="previous-turn" class="arrow-button" type="button" aria-label="Show earlier turns">‹</button>
+        <label class="turn-slider-label" for="turn-slider">
+          <span>Move through turns</span>
+          <input id="turn-slider" type="range" min="2" max="14" value="2" step="1" />
+        </label>
+        <button id="next-turn" class="arrow-button" type="button" aria-label="Show later turns">›</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <form method="dialog" class="dialog-panel" id="settings-form">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Customize board</p>
+          <h2>Settings</h2>
+        </div>
+        <button class="close-button" value="cancel" aria-label="Close settings" type="submit">×</button>
+      </div>
+
+      <div class="settings-grid">
+        <section class="settings-section">
+          <div class="section-heading">
+            <div>
+              <h3>Technicians</h3>
+              <p>Manage choices for each day. Select arrival order on the board.</p>
+            </div>
+            <select id="settings-day" aria-label="Day to edit"></select>
+          </div>
+          <div id="technician-list" class="editable-list"></div>
+          <div class="add-row">
+            <input id="new-technician" type="text" placeholder="Technician name" autocomplete="off" />
+            <button id="add-technician" type="button">Add</button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <div class="section-heading">
+            <div>
+              <h3>Services</h3>
+              <p>These choices appear in every turn.</p>
+            </div>
+          </div>
+          <div id="service-list" class="editable-list"></div>
+          <div class="add-row">
+            <input id="new-service" type="text" placeholder="Service name" autocomplete="off" />
+            <button id="add-service" type="button">Add</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="dialog-footer">
+        <button id="reset-board" class="danger-button" type="button">Reset sample data</button>
+        <button class="done-button" value="done" type="submit">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./merge.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
