@@ -77,8 +77,9 @@ export async function authRoute(request, env, assets) {
   if (!path.startsWith('/api/auth/')) return null;
   if (path === '/api/auth/status' && request.method === 'GET') {
     const account = await env.DB.prepare('SELECT username FROM salon_account WHERE id = 1').first();
-    const keyRequired = !!env.OWNER_SETUP_KEY;
-    return jsonAuth({configured:!!account, keyRequired, canSetup: keyRequired || !account});
+    // The setup key is only needed to CHANGE an existing account; first-run is open.
+    const keyRequired = !!env.OWNER_SETUP_KEY && !!account;
+    return jsonAuth({configured:!!account, keyRequired, canSetup: true});
   }
   if (request.method !== 'POST') return jsonAuth({error:'Method not allowed'},405);
   if (request.headers.get('Origin') !== url.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') return jsonAuth({error:'Yêu cầu không hợp lệ.'},403);
@@ -94,9 +95,11 @@ export async function authRoute(request, env, assets) {
     //  - Otherwise: first-run bootstrap (no account yet) is open, and once an
     //    account exists, only a signed-in device can change it.
     const existing = await env.DB.prepare('SELECT id FROM salon_account WHERE id = 1').first();
-    const authorized = env.OWNER_SETUP_KEY
-      ? validSetupKey(input.setupKey, env)
-      : (!existing || Boolean(await getSession(request, env)));
+    // First-run (no account yet) is always open. Changing an existing account
+    // needs the setup key (if configured) or a signed-in device.
+    const authorized = !existing
+      ? true
+      : (env.OWNER_SETUP_KEY ? validSetupKey(input.setupKey, env) : Boolean(await getSession(request, env)));
     if (!authorized) return jsonAuth({error: env.OWNER_SETUP_KEY
       ? 'Mã thiết lập không đúng. Chỉ chủ tiệm mới có mã này.'
       : 'Tài khoản đã được thiết lập. Đăng nhập trước rồi mới đổi được (hoặc đặt OWNER_SETUP_KEY để mở lại).'},403);
