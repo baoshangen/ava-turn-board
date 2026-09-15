@@ -98,3 +98,5 @@ npm run dev                       # local Worker at http://localhost:8787
 Never commit passwords, session tokens, the setup key, or production database contents.
 `OWNER_SETUP_KEY` lives only as a Worker secret (and in local `.dev.vars`, which is
 git-ignored).
+
+<!-- redeploy trigger: bind runtime vars -->
