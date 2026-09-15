@@ -77,6 +77,11 @@
   const save = () => { pending = true; status('Saving…'); sync(); };
   const escapeHtml = value => String(value).replace(/[&<>"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
   const entryKey = (day, staffId, turn) => `${day}|${staffId}|${turn}`;
+  // A turn column is "done" when every assigned technician has a service for it.
+  const turnComplete = (day, turn) => {
+    const assigned = (state.orderByDay[day] || []).filter(id => id);
+    return assigned.length > 0 && assigned.every(id => state.entries[entryKey(day, id, turn)]);
+  };
   const visibleTurns = () => expandedTurns ? Array.from({length:TURN_COUNT}, (_, i) => i + 1) : matchMedia('(max-width: 600px)').matches ? [state.centerTurn === 14 ? 14 : state.centerTurn-1, state.centerTurn === 14 ? 15 : state.centerTurn] : [state.centerTurn - 1, state.centerTurn, state.centerTurn + 1];
 
   function showToast(message) {
@@ -183,6 +188,15 @@
     select.classList.toggle("has-service", Boolean(select.value));
     select.blur();
     save();
+    // When the whole turn column is filled, jump to the next turn automatically.
+    if (select.value && !expandedTurns) {
+      const turn = Number(select.dataset.key.split("|")[2]);
+      if (turnComplete(state.activeDay, turn) && turn >= state.centerTurn && state.centerTurn < TURN_COUNT - 1) {
+        state.centerTurn = Math.min(TURN_COUNT - 1, turn + 1);
+        renderBoard();
+        showToast(`Turn ${turn} đủ → chuyển turn ${turn + 1}`);
+      }
+    }
   });
 
   $('#toggle-turn-view').addEventListener('click', () => {
