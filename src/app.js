@@ -46,13 +46,13 @@
           Object.assign(state, merged); baseState = structuredClone(remote.data); revision = remote.revision;
           pending = true; status('Combining changes…'); return;
         }
-        if (response.status === 401) { $('#sign-in-again').hidden = false; throw new Error('Phiên đăng nhập đã hết hạn. Thay đổi chưa lưu vẫn ở đây. Bấm Đăng nhập lại.'); }
+        if (response.status === 401) { $('#sign-in-again').hidden = false; throw new Error('Your session expired. Unsaved changes are still here. Tap Sign in again.'); }
         if (!response.ok) throw new Error('Could not save. Keep this page open and tap Retry.');
         revision = (await response.json()).revision; baseState = sent; renderBoard();
         status('Synced across devices');
       } else {
         const response = await fetch('/api/board', {cache:'no-store'});
-        if (response.status === 401) { $('#sign-in-again').hidden = false; throw new Error('Phiên đăng nhập đã hết hạn. Bấm Đăng nhập lại.'); }
+        if (response.status === 401) { $('#sign-in-again').hidden = false; throw new Error('Your session expired. Tap Sign in again.'); }
         if (!response.ok) throw new Error('Could not connect. Tap Retry.');
         const remote = await response.json();
         if (!ready && !remote.data) { ready = true; pending = true; }
@@ -101,7 +101,7 @@
   function renderBoard() {
     const turns = visibleTurns();
     $('.app-shell').classList.toggle('expanded-turns', expandedTurns);
-    $('#toggle-turn-view').textContent = expandedTurns ? 'Thu nhỏ' : 'Phóng to';
+    $('#toggle-turn-view').textContent = expandedTurns ? 'Collapse' : 'Expand';
     $('#toggle-turn-view').setAttribute('aria-pressed', String(expandedTurns));
     $('.turn-controls').hidden = expandedTurns;
     const staff = state.staffByDay[state.activeDay] || [];
@@ -116,7 +116,7 @@
     const order = state.orderByDay[state.activeDay] || [];
     const rows = staff.length; // one row per technician added for this day
     if (!rows) {
-      $("#turn-body").innerHTML = `<tr><td class="empty-board" colspan="${turns.length + 1}">Chưa có thợ cho ${escapeHtml(state.activeDay)} — mở Settings để thêm thợ làm hôm nay.</td></tr>`;
+      $("#turn-body").innerHTML = `<tr><td class="empty-board" colspan="${turns.length + 1}">No technicians for ${escapeHtml(state.activeDay)} — open Settings to add today’s technicians.</td></tr>`;
       return;
     }
     $("#turn-body").innerHTML = Array.from({length:rows}, (_, index) => {
@@ -198,7 +198,7 @@
       if (turnComplete(state.activeDay, turn) && turn >= state.centerTurn && state.centerTurn < TURN_COUNT - 1) {
         state.centerTurn = Math.min(TURN_COUNT - 1, turn + 1);
         renderBoard();
-        showToast(`Turn ${turn} đủ → chuyển turn ${turn + 1}`);
+        showToast(`Turn ${turn} full → moving to turn ${turn + 1}`);
       }
     }
   });
@@ -251,7 +251,7 @@
   $("#reset-day").addEventListener("click", () => {
     if (!ready || failed) return;
     const day = state.activeDay;
-    if (!confirm(`Reset ${day}? Xóa thứ tự Tech và toàn bộ 15 turn của ngày này trên các thiết bị. Danh sách thợ, service trong Settings và các ngày khác vẫn giữ nguyên.`)) return;
+    if (!confirm(`Reset ${day}? This clears the tech order and all 15 turns for this day on every device. Technicians, services in Settings, and other days stay the same.`)) return;
     state.orderByDay[day] = [];
     Object.keys(state.entries).filter(key => key.startsWith(`${day}|`)).forEach(key => delete state.entries[key]);
     state.centerTurn = 2;
@@ -274,15 +274,15 @@
     failed = false; pending = false; ready = false; $('#retry-sync').hidden = true; sync();
   });
   $('#logout-button').addEventListener('click', async () => {
-    if ((pending || saving || failed) && !confirm('Có thay đổi chưa lưu hoặc chưa kiểm tra được. Đăng xuất sẽ bỏ các thay đổi chưa lưu. Tiếp tục?')) return;
+    if ((pending || saving || failed) && !confirm('There are unsaved or unverified changes. Signing out will discard unsaved changes. Continue?')) return;
     try {
       const response = await fetch('/api/auth/logout',{method:'POST'});
-      if (!response.ok) throw new Error('Không đăng xuất được. Thử lại.');
+      if (!response.ok) throw new Error('Could not sign out. Try again.');
       pending = false; saving = false; failed = false; location.replace('/login');
     } catch(error) { showToast(error.message); }
   });
   fetch('/api/account', {cache:'no-store'}).then(r => r.ok ? r.json() : null).then(account => {
-    if (account?.email) $('#account-label').textContent = 'Tài khoản: ' + account.email;
+    if (account?.email) $('#account-label').textContent = 'Account: ' + account.email;
   }).catch(() => {});
   window.addEventListener('focus', () => { if (!failed) sync(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !failed) sync(); });

@@ -82,14 +82,14 @@ export async function authRoute(request, env, assets) {
     return jsonAuth({configured:!!account, keyRequired, canSetup: true});
   }
   if (request.method !== 'POST') return jsonAuth({error:'Method not allowed'},405);
-  if (request.headers.get('Origin') !== url.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') return jsonAuth({error:'Yêu cầu không hợp lệ.'},403);
+  if (request.headers.get('Origin') !== url.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') return jsonAuth({error:'Invalid request.'},403);
   if (path === '/api/auth/logout') {
     const token = readToken(request);
     if (token) await env.DB.prepare('DELETE FROM salon_sessions WHERE token_hash = ?').bind(await digest(token)).run();
     return jsonAuth({ok:true},200,{'Set-Cookie':cookie('',0)});
   }
   if (path === '/api/auth/setup') {
-    let input; try { input = await parseInput(request); } catch { return jsonAuth({error:'Kiểm tra lại tên đăng nhập và mật khẩu.'},400); }
+    let input; try { input = await parseInput(request); } catch { return jsonAuth({error:'Check the username and password.'},400); }
     // Authorization for creating/changing the shared account:
     //  - If OWNER_SETUP_KEY is set, the request must carry the correct key.
     //  - Otherwise: first-run bootstrap (no account yet) is open, and once an
@@ -101,10 +101,10 @@ export async function authRoute(request, env, assets) {
       ? true
       : (env.OWNER_SETUP_KEY ? validSetupKey(input.setupKey, env) : Boolean(await getSession(request, env)));
     if (!authorized) return jsonAuth({error: env.OWNER_SETUP_KEY
-      ? 'Mã thiết lập không đúng. Chỉ chủ tiệm mới có mã này.'
-      : 'Tài khoản đã được thiết lập. Đăng nhập trước rồi mới đổi được (hoặc đặt OWNER_SETUP_KEY để mở lại).'},403);
+      ? 'Wrong setup key. Only the owner has it.'
+      : 'An account already exists. Sign in first to change it (or set OWNER_SETUP_KEY to unlock).'},403);
     const {username,password} = input;
-    if (!/^[a-z0-9._-]{3,40}$/.test(username) || password.length < 15) return jsonAuth({error:'Tên đăng nhập: 3–40 ký tự (a–z, số, dấu . _ -). Mật khẩu: ít nhất 15 ký tự.'},400);
+    if (!/^[a-z0-9._-]{3,40}$/.test(username) || password.length < 15) return jsonAuth({error:'Username: 3-40 chars (a-z, digits, . _ -). Password: at least 15 characters.'},400);
     const salt = random(32), epoch = random(16), passwordHash = hex(await hashPassword(password,salt));
     await env.DB.batch([
       env.DB.prepare('INSERT INTO salon_account (id, username, password_hash, salt, epoch) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET username = excluded.username, password_hash = excluded.password_hash, salt = excluded.salt, epoch = excluded.epoch').bind(username,passwordHash,salt,epoch),
@@ -113,12 +113,12 @@ export async function authRoute(request, env, assets) {
     return jsonAuth({ok:true},200,{'Set-Cookie':cookie('',0)});
   }
   if (path === '/api/auth/login') {
-    if (!(await throttle(request,env))) return jsonAuth({error:'Đã thử quá nhiều lần. Vui lòng chờ tối đa 15 phút rồi thử lại.'},429,{'Retry-After':'900'});
-    let input; try { input = await parseInput(request); } catch { return jsonAuth({error:'Tên đăng nhập hoặc mật khẩu chưa đúng.'},400); }
+    if (!(await throttle(request,env))) return jsonAuth({error:'Too many attempts. Please wait up to 15 minutes and try again.'},429,{'Retry-After':'900'});
+    let input; try { input = await parseInput(request); } catch { return jsonAuth({error:'Incorrect username or password.'},400); }
     const account = await env.DB.prepare('SELECT username, password_hash, salt, epoch FROM salon_account WHERE id = 1').first();
-    if (!account) return jsonAuth({error:'Chủ tiệm chưa thiết lập tài khoản. Vui lòng liên hệ chủ tiệm.'},503);
+    if (!account) return jsonAuth({error:'The owner has not set up the account yet. Please contact the owner.'},503);
     const candidate = await hashPassword(input.password,account.salt);
-    if (!constantEqual(candidate,unhex(account.password_hash)) || input.username !== account.username) return jsonAuth({error:'Tên đăng nhập hoặc mật khẩu chưa đúng.'},401);
+    if (!constantEqual(candidate,unhex(account.password_hash)) || input.username !== account.username) return jsonAuth({error:'Incorrect username or password.'},401);
     const token = random(32);
     const lifetime = input.remember ? REMEMBER_LIFETIME : LIFETIME;
     await env.DB.batch([

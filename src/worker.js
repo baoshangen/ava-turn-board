@@ -39,7 +39,7 @@ async function handle(request, env) {
    return result.meta.changes ? json({revision:revision+1}) : json({error:'Board changed on another device'},409);
   } catch(error) {
     console.error('AVA request failed', error?.name || 'Error');
-    return url.pathname.startsWith('/api/') ? json({error:'Tạm thời chưa kết nối được. Vui lòng thử lại.'},503) : new Response('Tạm thời chưa kết nối được. Vui lòng tải lại trang.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});
+    return url.pathname.startsWith('/api/') ? json({error:'Temporarily unavailable. Please try again.'},503) : new Response('Temporarily unavailable. Please reload the page.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});
   }
 }
 export default { async fetch(request,env) {

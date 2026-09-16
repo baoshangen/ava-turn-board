@@ -12,5 +12,5 @@ function mergeBoard(base, local, remote) {
     }
     return result;
   }
-  throw new Error('Hai máy vừa sửa cùng một mục. Thay đổi chưa lưu vẫn ở đây. Bấm Retry để xem bảng mới nhất.');
+  throw new Error('Two devices edited the same item. Your unsaved changes are still here. Tap Retry to load the latest board.');
 }

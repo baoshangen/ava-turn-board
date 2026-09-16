@@ -4,40 +4,40 @@
   let configured = false;
   if (setup) {
     $('remember-field').hidden = true;
-    $('auth-title').textContent = 'Tài khoản chung của tiệm';
-    $('auth-description').textContent = 'Tự đặt tên đăng nhập và mật khẩu (ít nhất 15 ký tự) rồi chia sẻ riêng cho người trong tiệm. Đổi mật khẩu sẽ đăng xuất tất cả thiết bị; bảng turn vẫn giữ nguyên.';
+    $('auth-title').textContent = 'Shared salon account';
+    $('auth-description').textContent = 'Choose a username and a password (at least 15 characters), then share them privately with your staff. Changing the password signs out every device; the turn board stays.';
     $('password').autocomplete = 'new-password'; $('password').minLength = 15;
     $('confirm-field').hidden = false; $('confirm-password').required = true;
     $('setup-link').hidden = true; $('back-login').hidden = false;
-    $('auth-submit').textContent = 'Lưu tài khoản';
+    $('auth-submit').textContent = 'Save account';
   }
   async function load() {
     try {
       const response = await fetch('/api/auth/status',{cache:'no-store'});
-      if (!response.ok) throw new Error('Chưa kết nối được. Tải lại trang để thử lại.');
+      if (!response.ok) throw new Error('Could not connect. Reload the page to try again.');
       const data = await response.json(); configured = data.configured;
       if (setup) {
         $('setup-key-field').hidden = !data.keyRequired;
         $('setup-key').required = !!data.keyRequired;
-        $('auth-status').textContent = configured ? 'Đã có tài khoản chung. Đổi tài khoản/mật khẩu sẽ đăng xuất mọi thiết bị.' : '';
+        $('auth-status').textContent = configured ? 'An account already exists. Changing it will sign out every device.' : '';
         $('auth-submit').disabled = false;
       } else {
-        $('auth-status').textContent = !configured ? 'Chủ tiệm cần thiết lập tài khoản trước khi đăng nhập.' : '';
+        $('auth-status').textContent = !configured ? 'The owner must set up the account before signing in.' : '';
         $('auth-submit').disabled = !configured;
       }
     } catch(error) { $('auth-status').textContent = error.message; }
   }
   $('auth-form').addEventListener('submit', async event => {
     event.preventDefault();
-    if (setup && $('password').value !== $('confirm-password').value) { $('auth-status').textContent = 'Hai mật khẩu chưa giống nhau.'; return; }
-    if (setup && configured && !confirm('Đổi tài khoản hoặc mật khẩu sẽ đăng xuất tất cả thiết bị. Tiếp tục?')) return;
-    $('auth-submit').disabled = true; $('auth-status').textContent = setup ? 'Đang lưu…' : 'Đang đăng nhập…';
+    if (setup && $('password').value !== $('confirm-password').value) { $('auth-status').textContent = 'The two passwords do not match.'; return; }
+    if (setup && configured && !confirm('Changing the account or password will sign out every device. Continue?')) return;
+    $('auth-submit').disabled = true; $('auth-status').textContent = setup ? 'Saving…' : 'Signing in…';
     try {
       const response = await fetch(setup ? '/api/auth/setup' : '/api/auth/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('username').value,password:$('password').value,remember:!setup && $('remember-login').checked,...(setup ? {setupKey:$('setup-key').value} : {})})});
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Không thực hiện được. Vui lòng thử lại.');
+      if (!response.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
       $('password').value = ''; $('confirm-password').value = ''; $('setup-key').value = '';
-      if (setup) { configured = true; $('auth-status').textContent = 'Đã lưu. Bấm “Trở về đăng nhập” để mở bảng. Người trong tiệm dùng cùng link và tài khoản này.'; }
+      if (setup) { configured = true; $('auth-status').textContent = 'Saved. Tap “Back to sign in” to open the board. Staff use this same link and account.'; }
       else location.replace('/');
     } catch(error) { $('auth-status').textContent = error.message; }
     finally { $('auth-submit').disabled = false; }

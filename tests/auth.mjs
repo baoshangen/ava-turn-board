@@ -28,13 +28,16 @@ assert.equal((await call('/setup')).status,200,'Setup page is public; the setup 
 assert.equal((await call('/api/board')).status,401);
 assert.equal((await (await call('/api/auth/status')).json()).canSetup,true,'canSetup reflects OWNER_SETUP_KEY');
 
-// Owner setup requires the secret setup key and a same-origin request.
-assert.equal((await call('/api/auth/setup',{method:'POST',body:credentials})).status,403,'Missing setup key is rejected');
-assert.equal((await call('/api/auth/setup',{method:'POST',body:{...credentials,setupKey:'wrong'}})).status,403,'Wrong setup key is rejected');
+// Cross-origin setup is always rejected (CSRF).
 assert.equal((await call('/api/auth/setup',{method:'POST',body:setupBody,headers:{Origin:'https://evil.test'}})).status,403,'Cross-origin setup is rejected');
-assert.equal((await call('/api/auth/setup',{method:'POST',body:setupBody})).status,200);
+// First-run setup is open (no key needed) and preserves existing turns.
+assert.equal((await call('/api/auth/setup',{method:'POST',body:credentials})).status,200,'First-run setup is open');
 assert.equal(sqlite.prepare('SELECT data FROM board').get().data,'{"existing":true}','Setup preserves existing turns');
 assert.notEqual(sqlite.prepare('SELECT password_hash FROM salon_account').get().password_hash,credentials.password);
+// Once an account exists, changing it requires the setup key.
+assert.equal((await call('/api/auth/setup',{method:'POST',body:credentials})).status,403,'Change without key is rejected once configured');
+assert.equal((await call('/api/auth/setup',{method:'POST',body:{...credentials,setupKey:'wrong'}})).status,403,'Wrong key is rejected');
+assert.equal((await call('/api/auth/setup',{method:'POST',body:setupBody})).status,200,'Correct key allows changes');
 
 // Login by shared salon password.
 const login=(remember=false)=>call('/api/auth/login',{method:'POST',body:{...credentials,remember}});
