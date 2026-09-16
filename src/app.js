@@ -129,7 +129,7 @@
         const key = person ? entryKey(state.activeDay, person.id, turn) : '';
         const selected = state.entries[key] || '';
         const choices = [...new Set([...state.services, ...(selected ? [selected] : [])])];
-        return `<td><select class="service-select ${selected ? 'has-service' : ''}" data-key="${escapeHtml(key)}" ${person && ready && !failed ? '' : 'disabled'} aria-label="${escapeHtml(person?.name || 'Unassigned')}, turn ${turn}"><option value="">Service</option>${choices.map(service => `<option value="${escapeHtml(service)}" ${selected === service ? 'selected' : ''}>${escapeHtml(service)}</option>`).join('')}</select></td>`;
+        return `<td><select class="service-select ${selected ? 'has-service' : ''}" data-key="${escapeHtml(key)}" ${person && ready && !failed ? '' : 'disabled'} aria-label="${escapeHtml(person?.name || 'Unassigned')}, turn ${turn}"><option value=""></option>${choices.map(service => `<option value="${escapeHtml(service)}" ${selected === service ? 'selected' : ''}>${escapeHtml(service)}</option>`).join('')}</select></td>`;
       }).join('')}</tr>`;
     }).join('');
   }
