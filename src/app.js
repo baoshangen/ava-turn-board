@@ -113,12 +113,16 @@
     $("#next-turn").disabled = state.centerTurn >= TURN_COUNT - 1;
     $("#turn-head").innerHTML = `<tr><th scope="col">Tech · Arrival</th>${turns.map(turn => `<th scope="col">Turn ${turn}</th>`).join("")}</tr>`;
 
-    const order = state.orderByDay[state.activeDay] || [];
-    const rows = staff.length; // one row per technician added for this day
-    if (!rows) {
+    const staffIds = staff.map(p => p.id);
+    // Progressive rows: keep only technicians already placed (compacted), then show
+    // ONE extra empty "Choose tech" row to add the next one — keeps 20-30 techs tidy.
+    const order = (state.orderByDay[state.activeDay] || []).filter(id => staffIds.includes(id));
+    state.orderByDay[state.activeDay] = order;
+    if (!staff.length) {
       $("#turn-body").innerHTML = `<tr><td class="empty-board" colspan="${turns.length + 1}">No technicians for ${escapeHtml(state.activeDay)} — open Settings to add today’s technicians.</td></tr>`;
       return;
     }
+    const rows = order.length + (order.length < staff.length ? 1 : 0);
     $("#turn-body").innerHTML = Array.from({length:rows}, (_, index) => {
       const person = staff.find(p => p.id === order[index]);
       return `<tr><th scope="row"><div class="tech-cell"><span class="arrival-number">${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select></div></th>${turns.map(turn => {
