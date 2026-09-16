@@ -114,7 +114,11 @@
     $("#turn-head").innerHTML = `<tr><th scope="col">Tech · Arrival</th>${turns.map(turn => `<th scope="col">Turn ${turn}</th>`).join("")}</tr>`;
 
     const order = state.orderByDay[state.activeDay] || [];
-    const rows = Math.max(3, staff.length, order.length);
+    const rows = staff.length; // one row per technician added for this day
+    if (!rows) {
+      $("#turn-body").innerHTML = `<tr><td class="empty-board" colspan="${turns.length + 1}">Chưa có thợ cho ${escapeHtml(state.activeDay)} — mở Settings để thêm thợ làm hôm nay.</td></tr>`;
+      return;
+    }
     $("#turn-body").innerHTML = Array.from({length:rows}, (_, index) => {
       const person = staff.find(p => p.id === order[index]);
       return `<tr><th scope="row"><div class="tech-cell"><span class="arrival-number">${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select></div></th>${turns.map(turn => {
@@ -228,7 +232,9 @@
     const person = state.staffByDay[day].find(item => item.id === button.dataset.removeTech);
     if (!person || !confirm(`Remove ${person.name} from ${day}?`)) return;
     state.staffByDay[day] = state.staffByDay[day].filter(item => item.id !== person.id);
-    state.orderByDay[day] = state.orderByDay[day].map(id => id === person.id ? "" : id);
+    // Remove their arrival slot (row count shrinks) and clear their turns for the day.
+    state.orderByDay[day] = (state.orderByDay[day] || []).filter(id => id !== person.id);
+    Object.keys(state.entries).filter(key => key.startsWith(`${day}|${person.id}|`)).forEach(key => delete state.entries[key]);
     save(); renderSettings(); renderBoard();
   });
 
