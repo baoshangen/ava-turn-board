@@ -30,7 +30,11 @@
     </header>
 
     <div class="sync-row"><span id="account-label"></span><button id="logout-button" type="button">Sign out</button><span id="sync-status" role="status">Connecting…</span><a id="sign-in-again" href="/login" target="_blank" rel="noopener" hidden>Sign in again</a><button id="retry-sync" type="button" hidden>Retry</button></div>
-    <nav class="day-tabs" id="day-tabs" aria-label="Days of the week"></nav>
+    <div class="day-nav">
+      <button class="day-scroll" id="day-scroll-left" type="button" aria-label="Scroll to earlier days" hidden>‹</button>
+      <nav class="day-tabs" id="day-tabs" aria-label="Days of the week"></nav>
+      <button class="day-scroll" id="day-scroll-right" type="button" aria-label="Scroll to later days" hidden>›</button>
+    </div>
 
     <section class="board-card" aria-labelledby="active-day-title">
       <div class="board-heading">

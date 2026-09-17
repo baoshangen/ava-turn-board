@@ -92,10 +92,21 @@
     toastTimer = setTimeout(() => toast.classList.remove("show"), 1500);
   }
 
+  function updateDayArrows() {
+    const tabs = $("#day-tabs"), left = $("#day-scroll-left"), right = $("#day-scroll-right");
+    if (!tabs || !left || !right) return;
+    const overflow = tabs.scrollWidth - tabs.clientWidth;
+    const canScroll = overflow > 2;
+    left.hidden = right.hidden = !canScroll;
+    left.disabled = tabs.scrollLeft <= 1;
+    right.disabled = tabs.scrollLeft >= overflow - 1;
+  }
+
   function renderTabs() {
     $("#day-tabs").innerHTML = DAYS.map(day => `
       <button class="day-tab" type="button" role="tab" data-day="${day}" aria-selected="${day === state.activeDay}">${day}</button>
     `).join("");
+    updateDayArrows();
   }
 
   function renderBoard() {
@@ -177,6 +188,9 @@
     state.activeDay = button.dataset.day;
     renderTabs(); renderBoard();
   });
+  $("#day-tabs").addEventListener("scroll", updateDayArrows, { passive: true });
+  $("#day-scroll-left").addEventListener("click", () => $("#day-tabs").scrollBy({ left: -$("#day-tabs").clientWidth * 0.7, behavior: "smooth" }));
+  $("#day-scroll-right").addEventListener("click", () => $("#day-tabs").scrollBy({ left: $("#day-tabs").clientWidth * 0.7, behavior: "smooth" }));
 
   $("#turn-body").addEventListener("change", event => {
     const select = event.target.closest(".service-select");
@@ -291,7 +305,7 @@
   window.addEventListener('focus', () => { if (!failed) sync(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !failed) sync(); });
   window.addEventListener('beforeunload', event => { if (pending || saving || failed) { event.preventDefault(); event.returnValue = ''; } });
-  window.addEventListener('resize', renderBoard);
+  window.addEventListener('resize', () => { renderBoard(); updateDayArrows(); });
   setInterval(() => { if (ready && !pending && !saving && !failed && !document.querySelector('select:focus, input:focus')) sync(); }, 3000);
   sync();
 })();
