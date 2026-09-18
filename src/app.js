@@ -12,8 +12,8 @@
   const freshState = () => ({
     activeDay: "Monday",
     centerTurn: 2,
-    services: [...SAMPLE_SERVICES],
-    staffByDay: Object.fromEntries(DAYS.map(day => [day, ["Tyson", "TJ", "Ray"].map(name => ({ id: uid(), name }))])),
+    services: [],
+    staffByDay: Object.fromEntries(DAYS.map(day => [day, []])),
     orderByDay: Object.fromEntries(DAYS.map(day => [day, []])),
     entries: {}
   });
@@ -314,9 +314,9 @@
 
   $("#reset-board").addEventListener("click", () => {
     if (!ready || failed) return;
-    if (!confirm("Reset all technicians, services, and turn selections to the sample board?")) return;
+    if (!confirm("Clear this location? This removes all technicians, services, and turns for the current location on every device. The other location is not affected.")) return;
     state = freshState();
-    save(); renderTabs(); renderBoard(); renderSettings(); showToast("Board reset");
+    save(); renderTabs(); renderBoard(); renderSettings(); showToast("Location cleared");
   });
 
 
