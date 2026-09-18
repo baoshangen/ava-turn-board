@@ -25,8 +25,9 @@ async function handle(request, env) {
       const asset = ASSETS[url.pathname === '/' ? '/index.html' : url.pathname];
       return asset ? new Response(assetBody(asset),{headers:{'Content-Type':asset.type}}) : new Response('Not found',{status:404});
     }
+   const boardId = [1,2].includes(Number(url.searchParams.get('loc'))) ? Number(url.searchParams.get('loc')) : 1;
    if(request.method==='GET') {
-    const row=await db(env).prepare('SELECT revision, data FROM board WHERE id = 1').first();
+    const row=await db(env).prepare('SELECT revision, data FROM board WHERE id = ?').bind(boardId).first();
     return json(row ? {revision:row.revision,data:JSON.parse(row.data)} : {revision:0,data:null});
    }
    if(request.method!=='PUT') return json({error:'Method not allowed'},405);
@@ -35,7 +36,7 @@ async function handle(request, env) {
    if(raw.length>500000) return json({error:'Too large'},413);
    const {revision,data}=JSON.parse(raw);
    if(!Number.isSafeInteger(revision) || revision<0 || !valid(data)) return json({error:'Invalid board'},400);
-   const result=revision===0 ? await db(env).prepare('INSERT INTO board (id, revision, data) VALUES (1, 1, ?) ON CONFLICT(id) DO NOTHING').bind(JSON.stringify(data)).run() : await db(env).prepare('UPDATE board SET data = ?, revision = revision + 1 WHERE id = 1 AND revision = ?').bind(JSON.stringify(data),revision).run();
+   const result=revision===0 ? await db(env).prepare('INSERT INTO board (id, revision, data) VALUES (?, 1, ?) ON CONFLICT(id) DO NOTHING').bind(boardId,JSON.stringify(data)).run() : await db(env).prepare('UPDATE board SET data = ?, revision = revision + 1 WHERE id = ? AND revision = ?').bind(JSON.stringify(data),boardId,revision).run();
    return result.meta.changes ? json({revision:revision+1}) : json({error:'Board changed on another device'},409);
   } catch(error) {
     console.error('AVA request failed', error?.name || 'Error');

@@ -1,7 +1,11 @@
 (() => {
   const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const TURN_COUNT = 15;
-  const STORAGE_KEY = "ava-turn-board-v1";
+  const STORAGE_PREFIX = "ava-turn-board-v1";
+  const LOC_PARAM = new URLSearchParams(location.search).get("loc");
+  const LOCKED = LOC_PARAM === "1" || LOC_PARAM === "2";
+  let activeLoc = LOCKED ? Number(LOC_PARAM) : (Number(localStorage.getItem("ava-turn-board-loc")) === 2 ? 2 : 1);
+  const storageKey = () => `${STORAGE_PREFIX}:loc${activeLoc}`;
   const SAMPLE_SERVICES = ["Manicure", "Pedicure", "No Chip", "Dip Powder", "Acrylic Full Set", "Acrylic Fill", "Gel X", "French", "Nail Art"];
 
   const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -16,7 +20,7 @@
 
   const loadState = () => {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      const saved = JSON.parse(localStorage.getItem(storageKey()) || (activeLoc === 1 ? localStorage.getItem(STORAGE_PREFIX) : "null"));
       if (saved && saved.staffByDay && saved.services) return { ...freshState(), ...saved, orderByDay: saved.orderByDay || Object.fromEntries(DAYS.map(day => [day, (saved.staffByDay[day] || []).map(p => p.id)])) };
     } catch (_) {}
     return freshState();
@@ -27,7 +31,7 @@
   if (!state.orderByDay) state.orderByDay = Object.fromEntries(DAYS.map(day => [day, state.staffByDay[day].map(p => p.id)]));
   let baseState = null;
   let revision = 0, ready = false, saving = false, pending = false, failed = false;
-  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries });
+  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name });
   const status = message => { document.querySelector('#sync-status').textContent = message; };
   async function sync() {
     if (saving || failed) return;
@@ -36,9 +40,9 @@
       if (pending) {
         pending = false;
         const sent = JSON.parse(JSON.stringify(shared()));
-        const response = await fetch('/api/board', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({revision, data:sent}) });
+        const response = await fetch('/api/board?loc='+activeLoc, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({revision, data:sent}) });
         if (response.status === 409) {
-          const latest = await fetch('/api/board', {cache:'no-store'});
+          const latest = await fetch('/api/board?loc='+activeLoc, {cache:'no-store'});
           if (!latest.ok) throw new Error('Could not connect. Keep this page open and tap Retry.');
           const remote = await latest.json();
           if (!baseState) throw new Error('Another device initialized the board. Tap Retry to load it.');
@@ -51,7 +55,7 @@
         revision = (await response.json()).revision; baseState = sent; renderBoard();
         status('Synced across devices');
       } else {
-        const response = await fetch('/api/board', {cache:'no-store'});
+        const response = await fetch('/api/board?loc='+activeLoc, {cache:'no-store'});
         if (response.status === 401) { $('#sign-in-again').hidden = false; throw new Error('Your session expired. Tap Sign in again.'); }
         if (!response.ok) throw new Error('Could not connect. Tap Retry.');
         const remote = await response.json();
@@ -92,6 +96,33 @@
     toastTimer = setTimeout(() => toast.classList.remove("show"), 1500);
   }
 
+  function cacheLocName() { try { if (state.name) localStorage.setItem("ava-turn-board-name:loc" + activeLoc, state.name); } catch (_) {} }
+  function locLabel(n) { try { return localStorage.getItem("ava-turn-board-name:loc" + n) || ("Location " + n); } catch (_) { return "Location " + n; } }
+  function renderLocation() {
+    const row = $("#location-row"); if (!row) return;
+    cacheLocName();
+    $("#loc-1").hidden = $("#loc-2").hidden = LOCKED;
+    const lockedEl = $("#loc-locked"); lockedEl.hidden = !LOCKED;
+    if (LOCKED) { lockedEl.textContent = state.name || ("Location " + activeLoc); return; }
+    [1, 2].forEach(n => {
+      const btn = $("#loc-" + n);
+      btn.textContent = n === activeLoc ? (state.name || locLabel(n)) : locLabel(n);
+      btn.classList.toggle("active", n === activeLoc);
+      btn.setAttribute("aria-pressed", String(n === activeLoc));
+    });
+  }
+  function switchLocation(n) {
+    if (n === activeLoc || LOCKED) return;
+    if ((pending || saving || failed) && !confirm("Switch location? Unsaved changes on this device will be discarded.")) return;
+    activeLoc = n;
+    try { localStorage.setItem("ava-turn-board-loc", String(n)); } catch (_) {}
+    revision = 0; baseState = null; ready = false; pending = false; saving = false; failed = false;
+    $("#retry-sync").hidden = true; $("#sign-in-again").hidden = true;
+    state = loadState();
+    renderTabs(); renderBoard(); if ($("#settings-dialog").open) renderSettings();
+    status("Connecting…"); sync();
+  }
+
   function updateDayArrows() {
     const tabs = $("#day-tabs"), left = $("#day-scroll-left"), right = $("#day-scroll-right");
     if (!tabs || !left || !right) return;
@@ -107,6 +138,7 @@
       <button class="day-tab" type="button" role="tab" data-day="${day}" aria-selected="${day === state.activeDay}">${day}</button>
     `).join("");
     updateDayArrows();
+    renderLocation();
   }
 
   function renderBoard() {
@@ -149,6 +181,7 @@
     const settingsDay = $("#settings-day");
     if (!settingsDay.options.length) settingsDay.innerHTML = DAYS.map(day => `<option value="${day}">${day}</option>`).join("");
     settingsDay.value = settingsDay.value || state.activeDay;
+    const locInput = $("#location-name"); if (locInput) locInput.value = state.name || "";
     const staff = state.staffByDay[settingsDay.value] || [];
     $("#technician-list").innerHTML = staff.length ? staff.map(person => `
       <div class="list-item"><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-tech="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
@@ -191,6 +224,8 @@
   $("#day-tabs").addEventListener("scroll", updateDayArrows, { passive: true });
   $("#day-scroll-left").addEventListener("click", () => $("#day-tabs").scrollBy({ left: -$("#day-tabs").clientWidth * 0.7, behavior: "smooth" }));
   $("#day-scroll-right").addEventListener("click", () => $("#day-tabs").scrollBy({ left: $("#day-tabs").clientWidth * 0.7, behavior: "smooth" }));
+  $("#loc-1").addEventListener("click", () => switchLocation(1));
+  $("#loc-2").addEventListener("click", () => switchLocation(2));
 
   $("#turn-body").addEventListener("change", event => {
     const select = event.target.closest(".service-select");
@@ -242,6 +277,7 @@
   $("#new-technician").addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); addTechnician(); } });
   $("#add-service").addEventListener("click", addService);
   $("#new-service").addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); addService(); } });
+  $("#location-name").addEventListener("change", event => { if (!ready || failed) return; state.name = event.target.value.trim(); save(); renderLocation(); });
 
   $("#technician-list").addEventListener("click", event => {
     const button = event.target.closest("[data-remove-tech]");

@@ -30,6 +30,11 @@
     </header>
 
     <div class="sync-row"><span id="account-label"></span><button id="logout-button" type="button">Sign out</button><span id="sync-status" role="status">Connecting…</span><a id="sign-in-again" href="/login" target="_blank" rel="noopener" hidden>Sign in again</a><button id="retry-sync" type="button" hidden>Retry</button></div>
+    <div class="location-row" id="location-row">
+      <button class="loc-btn" id="loc-1" type="button" aria-pressed="true">Location 1</button>
+      <button class="loc-btn" id="loc-2" type="button" aria-pressed="false">Location 2</button>
+      <span class="loc-locked" id="loc-locked" hidden></span>
+    </div>
     <div class="day-nav">
       <button class="day-scroll" id="day-scroll-left" type="button" aria-label="Scroll to earlier days" hidden>‹</button>
       <nav class="day-tabs" id="day-tabs" aria-label="Days of the week"></nav>
@@ -71,6 +76,11 @@
           <h2>Settings</h2>
         </div>
         <button class="close-button" value="cancel" aria-label="Close settings" type="submit">×</button>
+      </div>
+
+      <div class="loc-name-row">
+        <label for="location-name">Location name</label>
+        <input id="location-name" type="text" maxlength="40" placeholder="e.g. AVA Downtown" autocomplete="off" />
       </div>
 
       <div class="settings-grid">
