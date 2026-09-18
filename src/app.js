@@ -1,6 +1,7 @@
 (() => {
   const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const TURN_COUNT = 15;
+  const SPLIT = "␟"; // separator so one cell can hold two services (half turn)
   const STORAGE_PREFIX = "ava-turn-board-v1";
   const LOC_PARAM = new URLSearchParams(location.search).get("loc");
   const LOCKED = LOC_PARAM === "1" || LOC_PARAM === "2";
@@ -82,9 +83,10 @@
   const escapeHtml = value => String(value).replace(/[&<>"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
   const entryKey = (day, staffId, turn) => `${day}|${staffId}|${turn}`;
   // A turn column is "done" when every assigned technician has a service for it.
+  const hasService = v => typeof v === "string" && v.split(SPLIT).some(Boolean);
   const turnComplete = (day, turn) => {
     const assigned = (state.orderByDay[day] || []).filter(id => id);
-    return assigned.length > 0 && assigned.every(id => state.entries[entryKey(day, id, turn)]);
+    return assigned.length > 0 && assigned.every(id => hasService(state.entries[entryKey(day, id, turn)] || ""));
   };
   const visibleTurns = () => expandedTurns ? Array.from({length:TURN_COUNT}, (_, i) => i + 1) : matchMedia('(max-width: 600px)').matches ? [state.centerTurn === 14 ? 14 : state.centerTurn-1, state.centerTurn === 14 ? 15 : state.centerTurn] : [state.centerTurn - 1, state.centerTurn, state.centerTurn + 1];
 
@@ -170,9 +172,17 @@
       const person = staff.find(p => p.id === order[index]);
       return `<tr><th scope="row"><div class="tech-cell"><span class="arrival-number">${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select></div></th>${turns.map(turn => {
         const key = person ? entryKey(state.activeDay, person.id, turn) : '';
-        const selected = state.entries[key] || '';
-        const choices = [...new Set([...state.services, ...(selected ? [selected] : [])])];
-        return `<td><select class="service-select ${selected ? 'has-service' : ''}" data-key="${escapeHtml(key)}" ${person && ready && !failed ? '' : 'disabled'} aria-label="${escapeHtml(person?.name || 'Unassigned')}, turn ${turn}"><option value=""></option>${choices.map(service => `<option value="${escapeHtml(service)}" ${selected === service ? 'selected' : ''}>${escapeHtml(service)}</option>`).join('')}</select></td>`;
+        const raw = state.entries[key] || '';
+        const isSplit = raw.includes(SPLIT);
+        const dis = person && ready && !failed ? '' : 'disabled';
+        const label = escapeHtml(person?.name || 'Unassigned');
+        const opts = sel => `<option value=""></option>${[...new Set([...state.services, ...(sel ? [sel] : [])])].map(s => `<option value="${escapeHtml(s)}" ${sel === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}`;
+        const heart = person ? `<button type="button" class="split-toggle" data-split-key="${escapeHtml(key)}" ${dis} aria-label="Split into two services" aria-pressed="${isSplit}">♥</button>` : '';
+        if (isSplit) {
+          const [a = '', b = ''] = raw.split(SPLIT);
+          return `<td><div class="cell-wrap split"><select class="service-select half ${a ? 'has-service' : ''}" data-key="${escapeHtml(key)}" data-slot="a" ${dis} aria-label="${label}, turn ${turn} top">${opts(a)}</select><select class="service-select half ${b ? 'has-service' : ''}" data-key="${escapeHtml(key)}" data-slot="b" ${dis} aria-label="${label}, turn ${turn} bottom">${opts(b)}</select>${heart}</div></td>`;
+        }
+        return `<td><div class="cell-wrap"><select class="service-select ${raw ? 'has-service' : ''}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn}">${opts(raw)}</select>${heart}</div></td>`;
       }).join('')}</tr>`;
     }).join('');
   }
@@ -227,6 +237,21 @@
   $("#loc-1").addEventListener("click", () => switchLocation(1));
   $("#loc-2").addEventListener("click", () => switchLocation(2));
 
+  $("#turn-body").addEventListener("click", event => {
+    const heart = event.target.closest(".split-toggle");
+    if (!heart || !ready || failed) return;
+    const key = heart.dataset.splitKey;
+    if (!key) return;
+    const cur = state.entries[key] || '';
+    if (cur.includes(SPLIT)) {
+      const first = cur.split(SPLIT)[0];
+      if (first) state.entries[key] = first; else delete state.entries[key];
+    } else {
+      state.entries[key] = cur + SPLIT;
+    }
+    save(); renderBoard();
+  });
+
   $("#turn-body").addEventListener("change", event => {
     const select = event.target.closest(".service-select");
     if (!select) return;
@@ -240,8 +265,18 @@
       order[index] = select.value;
       save(); renderBoard(); return;
     }
-    if (select.value) state.entries[select.dataset.key] = select.value;
-    else delete state.entries[select.dataset.key];
+    const cellKey = select.dataset.key;
+    const slot = select.dataset.slot;
+    const cur = state.entries[cellKey] || '';
+    if (slot || cur.includes(SPLIT)) {
+      let [a = '', b = ''] = cur.includes(SPLIT) ? cur.split(SPLIT) : [cur, ''];
+      if (slot === 'b') b = select.value; else a = select.value;
+      state.entries[cellKey] = a + SPLIT + b; // keep the cell split even if one half is empty
+    } else if (select.value) {
+      state.entries[cellKey] = select.value;
+    } else {
+      delete state.entries[cellKey];
+    }
     select.classList.toggle("has-service", Boolean(select.value));
     select.blur();
     save();
