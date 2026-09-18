@@ -180,7 +180,9 @@
         const heart = person ? `<button type="button" class="split-toggle" data-split-key="${escapeHtml(key)}" ${dis} aria-label="Split into two services" aria-pressed="${isSplit}">♥</button>` : '';
         if (isSplit) {
           const [a = '', b = ''] = raw.split(SPLIT);
-          return `<td><div class="cell-wrap split"><select class="service-select half ${a ? 'has-service' : ''}" data-key="${escapeHtml(key)}" data-slot="a" ${dis} aria-label="${label}, turn ${turn} top">${opts(a)}</select><select class="service-select half ${b ? 'has-service' : ''}" data-key="${escapeHtml(key)}" data-slot="b" ${dis} aria-label="${label}, turn ${turn} bottom">${opts(b)}</select>${heart}</div></td>`;
+          const full = !!a && !!b;
+          const cls = v => v ? (full ? 'has-service' : 'half-partial') : '';
+          return `<td><div class="cell-wrap split"><select class="service-select half ${cls(a)}" data-key="${escapeHtml(key)}" data-slot="a" ${dis} aria-label="${label}, turn ${turn} top">${opts(a)}</select><select class="service-select half ${cls(b)}" data-key="${escapeHtml(key)}" data-slot="b" ${dis} aria-label="${label}, turn ${turn} bottom">${opts(b)}</select>${heart}</div></td>`;
         }
         return `<td><div class="cell-wrap"><select class="service-select ${raw ? 'has-service' : ''}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn}">${opts(raw)}</select>${heart}</div></td>`;
       }).join('')}</tr>`;
@@ -268,7 +270,8 @@
     const cellKey = select.dataset.key;
     const slot = select.dataset.slot;
     const cur = state.entries[cellKey] || '';
-    if (slot || cur.includes(SPLIT)) {
+    const splitCell = slot || cur.includes(SPLIT);
+    if (splitCell) {
       let [a = '', b = ''] = cur.includes(SPLIT) ? cur.split(SPLIT) : [cur, ''];
       if (slot === 'b') b = select.value; else a = select.value;
       state.entries[cellKey] = a + SPLIT + b; // keep the cell split even if one half is empty
@@ -277,9 +280,10 @@
     } else {
       delete state.entries[cellKey];
     }
-    select.classList.toggle("has-service", Boolean(select.value));
     select.blur();
     save();
+    if (splitCell) renderBoard(); // recompute red (one half filled) vs green (both filled)
+    else select.classList.toggle("has-service", Boolean(select.value));
     // When the whole turn column is filled, jump to the next turn automatically.
     if (select.value && !expandedTurns) {
       const turn = Number(select.dataset.key.split("|")[2]);
