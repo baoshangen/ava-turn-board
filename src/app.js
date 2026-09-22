@@ -134,7 +134,7 @@
     pinLocked = true;
     ready = false;
     status("Locked");
-    const label = $("#pin-loc-name"); if (label) label.textContent = state.name || ("Location " + activeLoc);
+    const label = $("#pin-loc-name"); if (label) label.textContent = state.name || locLabel(activeLoc);
     const err = $("#pin-error"); if (err) err.textContent = "";
     const input = $("#pin-input"); if (input) input.value = "";
     document.querySelector(".app-shell").classList.add("pin-locked");
