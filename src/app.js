@@ -342,6 +342,19 @@
     renderBoard();
   });
 
+  // Full-screen focus: hide the top chrome so the board fills the screen.
+  let focusMode = false;
+  function setFocus(on) {
+    focusMode = on;
+    $('.app-shell').classList.toggle('focus-mode', on);
+    const btn = $('#focus-toggle');
+    btn.textContent = on ? '✕ Exit full screen' : '⛶ Full screen';
+    btn.setAttribute('aria-pressed', String(on));
+    window.scrollTo(0, 0);
+  }
+  $('#focus-toggle').addEventListener('click', () => setFocus(!focusMode));
+  $('#active-day-title').addEventListener('click', () => setFocus(!focusMode));
+
   $("#turn-slider").addEventListener("input", event => { state.centerTurn = Number(event.target.value); renderBoard(); });
   $("#previous-turn").addEventListener("click", () => { state.centerTurn = Math.max(2, state.centerTurn - 1); renderBoard(); });
   $("#next-turn").addEventListener("click", () => { state.centerTurn = Math.min(TURN_COUNT - 1, state.centerTurn + 1); renderBoard(); });
