@@ -9,8 +9,6 @@
 .pick .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick .txt.add{color:#aeb3b9;font-weight:600}
 .pick.has-service{color:var(--accent-deep);background-color:var(--green);font-weight:600}
-.pick.half-partial{color:#b42318;background-color:#fde7e7;font-weight:600}
-.pick+.pick{border-top:1px solid var(--line)}
 .pick:disabled{cursor:default;color:#c2c6cc;background:#fafafa}
 /* Service picker — each service has a ♥ to split the cell into two services */
 .picker-back{position:fixed;inset:0;background:#0006;z-index:50;display:grid;place-items:center;padding:16px}
@@ -27,9 +25,7 @@
 .opt-heart{flex:0 0 56px;border:1px solid var(--line);background:#fff;color:#e5484d;border-radius:5px;font-size:22px;line-height:1;cursor:pointer}
 .opt-heart:hover{background:#fde7e7;border-color:#e5484d}
 .picker-empty{color:var(--muted);font-size:14px;margin:6px 0}
-.picker-combine{margin-top:14px;width:100%;border:1px solid var(--line);background:#fff;color:#111;font-weight:650;border-radius:6px;padding:13px;font-size:15px;cursor:pointer}
-.picker-combine[hidden]{display:none}
-.picker-clear{margin-top:10px;width:100%;border:2px solid #b42318;background:#fde7e7;color:#b42318;font-weight:800;border-radius:6px;padding:14px;font-size:16px;letter-spacing:.02em}
+.picker-clear{margin-top:14px;width:100%;border:2px solid #b42318;background:#fde7e7;color:#b42318;font-weight:800;border-radius:6px;padding:14px;font-size:16px;letter-spacing:.02em}
 .picker-clear[hidden]{display:none}
 /* Full-screen focus: tap the day title (or the button) to hide the top chrome */
 .board-heading h2{cursor:pointer}

@@ -194,17 +194,12 @@
         const key = person ? entryKey(state.activeDay, person.id, turn) : '';
         if (!person) return `<td></td>`;
         const raw = state.entries[key] || '';
-        const isSplit = raw.includes(SPLIT);
         const dis = ready && !failed ? '' : 'disabled';
         const label = escapeHtml(person.name || '');
-        const pick = (half, val, cls) => `<button type="button" class="pick ${cls}" data-key="${escapeHtml(key)}" data-half="${half}" ${dis} aria-label="${label}, turn ${turn} — choose service">${val ? `<span class="txt">${escapeHtml(val)}</span>` : '<span class="txt add">＋</span>'}</button>`;
-        if (isSplit) {
-          const [a = '', b = ''] = raw.split(SPLIT);
-          const full = !!a && !!b;
-          const cls = v => v ? (full ? 'has-service' : 'half-partial') : '';
-          return `<td><div class="cell-wrap split"><div class="pick-area">${pick('a', a, cls(a))}${pick('b', b, cls(b))}</div></div></td>`;
-        }
-        return `<td><div class="cell-wrap"><div class="pick-area">${pick('single', raw, raw ? 'has-service' : '')}</div></div></td>`;
+        // Two services show on one line as "A/B" (a slash), not stacked halves.
+        const disp = raw.includes(SPLIT) ? raw.split(SPLIT).filter(Boolean).join('/') : raw;
+        const inner = disp ? `<span class="txt">${escapeHtml(disp)}</span>` : '<span class="txt add">＋</span>';
+        return `<td><div class="cell-wrap"><button type="button" class="pick ${hasService(raw) ? 'has-service' : ''}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn} — choose service">${inner}</button></div></td>`;
       }).join('')}</tr>`;
     }).join('');
   }
@@ -262,7 +257,7 @@
   $("#turn-body").addEventListener("click", event => {
     if (!ready || failed) return;
     const cell = event.target.closest(".pick");
-    if (cell && !cell.disabled) openPicker(cell.dataset.key, cell.dataset.half);
+    if (cell && !cell.disabled) openPicker(cell.dataset.key);
   });
 
   // Choosing a technician for an arrival slot (still a native dropdown).
@@ -278,31 +273,28 @@
     save(); renderBoard();
   });
 
-  // Service picker: tap a cell's white area to open, choose a service, or Remove.
+  // Service picker: tap a cell to open. Tap a name = 1 service (whole cell);
+  // tap the ♥ next to a service = add it as a second service, shown "A/B".
   const servicePicker = $("#service-picker");
-  let pickTarget = { key: null, half: null };
-  function openPicker(key, half) {
+  let pickKey = null;
+  function openPicker(key) {
     if (!key || !ready || failed) return;
-    pickTarget = { key, half };
+    pickKey = key;
     const raw = state.entries[key] || '';
-    const split = raw.includes(SPLIT);
-    let cur;
-    if (half === 'single') cur = split ? '' : raw;
-    else { const [a = '', b = ''] = split ? raw.split(SPLIT) : [raw, '']; cur = half === 'a' ? a : b; }
+    const parts = raw.includes(SPLIT) ? raw.split(SPLIT).filter(Boolean) : (raw ? [raw] : []);
     const [day, staffId, turn] = key.split('|');
     const person = (state.staffByDay[day] || []).find(p => p.id === staffId);
-    $("#picker-sub").textContent = `${person ? person.name : ''} · Turn ${turn}${half === 'single' ? '' : (half === 'a' ? ' (top half)' : ' (bottom half)')}`;
+    $("#picker-sub").textContent = `${person ? person.name : ''} · Turn ${turn}`;
     $("#opt-grid").innerHTML = state.services.length
-      ? state.services.map(s => `<div class="opt-row"><button type="button" class="opt ${s === cur ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}</button><button type="button" class="opt-heart" data-svc-split="${escapeHtml(s)}" aria-label="Split cell and add ${escapeHtml(s)}">♥</button></div>`).join('')
+      ? state.services.map(s => `<div class="opt-row"><button type="button" class="opt ${parts.includes(s) ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}</button><button type="button" class="opt-heart" data-svc-split="${escapeHtml(s)}" aria-label="Add ${escapeHtml(s)} as a second service">♥</button></div>`).join('')
       : `<p class="picker-empty">No services yet — add them in Settings.</p>`;
-    $("#picker-clear").hidden = !cur;
-    $("#picker-combine").hidden = !split;
+    $("#picker-clear").hidden = parts.length === 0;
     servicePicker.hidden = false;
   }
   const closePicker = () => { servicePicker.hidden = true; };
-  function commitCell(key, val) {
+  function commitCell(key, filled) {
     save(); renderBoard();
-    if (!val) return;
+    if (!filled) return;
     const turn = Number(key.split('|')[2]);
     if (turnComplete(state.activeDay, turn) && turn < TURN_COUNT) {
       if (expandedTurns) {
@@ -317,41 +309,27 @@
       }
     }
   }
+  // Tap a service name = one service for the whole cell (collapses any pair).
   function applyPick(val) {
-    const { key, half } = pickTarget;
-    if (!key) return;
-    const cur = state.entries[key] || '';
-    if (half === 'single') { if (val) state.entries[key] = val; else delete state.entries[key]; }
-    else { let [a = '', b = ''] = cur.includes(SPLIT) ? cur.split(SPLIT) : [cur, '']; if (half === 'b') b = val; else a = val; state.entries[key] = a + SPLIT + b; }
-    commitCell(key, val);
+    if (!pickKey) return;
+    if (val) state.entries[pickKey] = val; else delete state.entries[pickKey];
+    commitCell(pickKey, !!val);
   }
-  // Heart next to a service = make the cell hold two services (split top/bottom).
-  function applySplit(val) {
-    const { key, half } = pickTarget;
-    if (!key || !val) return;
-    const cur = state.entries[key] || '';
-    if (cur.includes(SPLIT)) { let [a = '', b = ''] = cur.split(SPLIT); if (half === 'b') b = val; else a = val; state.entries[key] = a + SPLIT + b; }
-    else if (cur) state.entries[key] = cur + SPLIT + val; // keep current on top, add this as second
-    else state.entries[key] = val + SPLIT + '';           // this on top, second empty
-    commitCell(key, val);
-  }
-  // Combine a split cell back to a single service (keep the first filled half).
-  function combineCell() {
-    const { key } = pickTarget;
-    if (!key) return;
-    const cur = state.entries[key] || '';
-    const keep = cur.includes(SPLIT) ? (cur.split(SPLIT).find(Boolean) || '') : cur;
-    if (keep) state.entries[key] = keep; else delete state.entries[key];
-    commitCell(key, '');
+  // Tap ♥ = two services in the cell, shown "A/B" (keep the first, set second).
+  function applyPair(val) {
+    if (!pickKey || !val) return;
+    const cur = state.entries[pickKey] || '';
+    if (!cur) state.entries[pickKey] = val;
+    else { const first = cur.includes(SPLIT) ? cur.split(SPLIT)[0] : cur; state.entries[pickKey] = first + SPLIT + val; }
+    commitCell(pickKey, true);
   }
   $("#opt-grid").addEventListener("click", event => {
     const sp = event.target.closest("[data-svc-split]");
-    if (sp) { applySplit(sp.dataset.svcSplit); closePicker(); return; }
+    if (sp) { applyPair(sp.dataset.svcSplit); closePicker(); return; }
     const o = event.target.closest(".opt");
     if (o) { applyPick(o.dataset.svc); closePicker(); }
   });
   $("#picker-clear").addEventListener("click", () => { applyPick(''); closePicker(); });
-  $("#picker-combine").addEventListener("click", () => { combineCell(); closePicker(); });
   $("#picker-x").addEventListener("click", closePicker);
   servicePicker.addEventListener("click", event => { if (event.target === servicePicker) closePicker(); });
   document.addEventListener("keydown", event => { if (event.key === "Escape" && !servicePicker.hidden) closePicker(); });
