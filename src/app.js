@@ -7,7 +7,6 @@
   const LOCKED = LOC_PARAM === "1" || LOC_PARAM === "2";
   let activeLoc = LOCKED ? Number(LOC_PARAM) : (Number(localStorage.getItem("ava-turn-board-loc")) === 2 ? 2 : 1);
   const storageKey = () => `${STORAGE_PREFIX}:loc${activeLoc}`;
-  const SAMPLE_SERVICES = ["Manicure", "Pedicure", "No Chip", "Dip Powder", "Acrylic Full Set", "Acrylic Fill", "Gel X", "French", "Nail Art"];
 
   const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const freshState = () => ({
