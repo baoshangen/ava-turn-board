@@ -8,16 +8,21 @@
 .pick{flex:1;min-height:32px;border:0;border-radius:0;background:transparent;text-align:center;padding:2px 3px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:500;color:#8b9096;width:100%;font-size:13px}
 .pick .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .pick .txt.add{color:#aeb3b9;font-weight:600}
-.pick.has-service{color:var(--accent-deep);background-color:var(--green);font-weight:600}
+.pick.full{color:var(--accent-deep);background-color:var(--green);font-weight:600}
+.pick.half{color:#b42318;background-color:#fde7e7;font-weight:600}
 .pick:disabled{cursor:default;color:#c2c6cc;background:#fafafa}
 /* Service picker — each service has a ♥ to split the cell into two services */
 .picker-back{position:fixed;inset:0;background:#0006;z-index:50;display:grid;place-items:center;padding:16px}
 .picker-back[hidden]{display:none}
 .picker{width:min(460px,100%);max-height:90dvh;display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px}
-.picker-head,.picker-clear,.picker-done{flex:none}
+.picker-head,.picker-clear{flex:none}
 .picker-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid #ddd;padding-bottom:12px;margin-bottom:14px}
+.picker-head-main{min-width:0}
 .picker-head h3{margin:0;font-size:18px}
-.picker-head p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.picker-sub-row{display:flex;align-items:center;gap:10px;margin-top:4px}
+.picker-head p{margin:0;font-size:13px;color:var(--muted)}
+.picker-half{flex:none;border:1px solid #e5a5a5;background:#fff;color:#e5484d;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700;line-height:1}
+.picker-half.active{background:#e5484d;color:#fff;border-color:#e5484d}
 .picker-head .x{border:0;background:#f0f1f2;font-size:16px;line-height:1;padding:8px 11px;border-radius:5px}
 .opt-grid{display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1 1 auto;min-height:0}
 .opt{width:100%;border:1px solid var(--line);background:#fff;border-radius:5px;padding:14px 12px;text-align:left;font-size:16px;font-weight:600}
@@ -25,7 +30,6 @@
 .picker-empty{color:var(--muted);font-size:14px;margin:6px 0}
 .picker-clear{margin-top:14px;width:100%;border:2px solid #b42318;background:#fde7e7;color:#b42318;font-weight:800;border-radius:6px;padding:14px;font-size:16px;letter-spacing:.02em}
 .picker-clear[hidden]{display:none}
-.picker-done{margin-top:10px;width:100%;border:0;background:var(--accent);color:#fff;font-weight:800;border-radius:6px;padding:14px;font-size:16px}
 /* Short/small windows (e.g. side-by-side): shrink the picker so it fits without cutting off. */
 @media(max-height:640px){
   .picker{padding:12px;max-height:94dvh}
@@ -34,7 +38,6 @@
   .opt-grid{gap:6px}
   .opt{padding:9px 10px;font-size:15px}
   .picker-clear{margin-top:8px;padding:10px;font-size:15px}
-  .picker-done{margin-top:6px;padding:10px;font-size:15px}
 }
 /* Full-screen focus: tap the day title (or the button) to hide the top chrome */
 .board-heading h2{cursor:pointer}

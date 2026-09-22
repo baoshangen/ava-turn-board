@@ -85,11 +85,15 @@
   const save = () => { pending = true; dirty = true; status('Saving…'); sync(); };
   const escapeHtml = value => String(value).replace(/[&<>"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
   const entryKey = (day, staffId, turn) => `${day}|${staffId}|${turn}`;
-  // A turn column is "done" when every assigned technician has a service for it.
+  // Cell states: "Pe" = single (full/green), "Pe␟" = one half (red),
+  // "Pe␟Nc" = both halves (full/green). A half turn is NOT a complete turn.
   const hasService = v => typeof v === "string" && v.split(SPLIT).some(Boolean);
+  const isComplete = v => { if (!v) return false; if (!v.includes(SPLIT)) return true; const [a, b] = v.split(SPLIT); return !!a && !!b; };
+  const isHalf = v => { if (typeof v !== "string" || !v.includes(SPLIT)) return false; const [a, b] = v.split(SPLIT); return (!!a) !== (!!b); };
+  // A turn column is "done" when every assigned technician has a COMPLETE (green) turn.
   const turnComplete = (day, turn) => {
     const assigned = (state.orderByDay[day] || []).filter(id => id);
-    return assigned.length > 0 && assigned.every(id => hasService(state.entries[entryKey(day, id, turn)] || ""));
+    return assigned.length > 0 && assigned.every(id => isComplete(state.entries[entryKey(day, id, turn)] || ""));
   };
   const visibleTurns = () => expandedTurns ? Array.from({length:TURN_COUNT}, (_, i) => i + 1) : matchMedia('(max-width: 600px)').matches ? [state.centerTurn === 14 ? 14 : state.centerTurn-1, state.centerTurn === 14 ? 15 : state.centerTurn] : [state.centerTurn - 1, state.centerTurn, state.centerTurn + 1];
 
@@ -205,10 +209,11 @@
         const raw = state.entries[key] || '';
         const dis = ready && !failed ? '' : 'disabled';
         const label = escapeHtml(person.name || '');
-        // Two services show on one line as "A/B" (a slash), not stacked halves.
-        const disp = raw.includes(SPLIT) ? raw.split(SPLIT).filter(Boolean).join('/') : raw;
+        // A split shows on one line with a slash: "Pe␟"→"Pe/" (half), "Pe␟Nc"→"Pe/Nc" (full).
+        const disp = raw.includes(SPLIT) ? raw.split(SPLIT).join('/') : raw;
+        const cls = isComplete(raw) ? 'full' : (isHalf(raw) ? 'half' : '');
         const inner = disp ? `<span class="txt">${escapeHtml(disp)}</span>` : '<span class="txt add">＋</span>';
-        return `<td><div class="cell-wrap"><button type="button" class="pick ${hasService(raw) ? 'has-service' : ''}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn} — choose service">${inner}</button></div></td>`;
+        return `<td><div class="cell-wrap"><button type="button" class="pick ${cls}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn} — choose service">${inner}</button></div></td>`;
       }).join('')}</tr>`;
     }).join('');
   }
@@ -282,49 +287,59 @@
     save(); renderBoard();
   });
 
-  // Service picker: tap a cell to open, then tap service names. The first tap
-  // fills the whole cell; a second (different) service joins as "A/B" — a half
-  // turn (like the Numbers sheet's "Pe/ma"). Tapping a selected service again
-  // removes it, so the same service twice clears it (never "Pe/Pe"). Picking a
-  // second service auto-closes; for a single service tap Done (or outside).
+  // Service picker: tap a cell to open. Tap a service name = whole cell (a full
+  // turn, green) and close. Tap ♥ first, then a service = start a half turn
+  // ("Pe/", red); the next pick (reopen) fills the other half → "Pe/Nc" (green).
+  // Tapping a service already in the cell removes just that half; the red
+  // "Remove service" button clears the whole cell. No checkmarks.
   const servicePicker = $("#service-picker");
   let pickKey = null;
-  const curParts = () => {
-    const raw = state.entries[pickKey] || '';
-    return raw.includes(SPLIT) ? raw.split(SPLIT).filter(Boolean) : (raw ? [raw] : []);
-  };
-  function refreshPicker() {
-    const parts = curParts();
-    const [day, staffId, turn] = pickKey.split('|');
-    const person = (state.staffByDay[day] || []).find(p => p.id === staffId);
-    const preview = parts.join('/');
-    $("#picker-sub").textContent = `${person ? person.name : ''} · Turn ${turn}${preview ? ' · ' + preview : ''}`;
-    $("#opt-grid").innerHTML = state.services.length
-      ? state.services.map(s => `<button type="button" class="opt ${parts.includes(s) ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}${parts.includes(s) ? ' ✓' : ''}</button>`).join('')
-      : `<p class="picker-empty">No services yet — add them in Settings.</p>`;
-    $("#picker-clear").hidden = parts.length === 0;
+  let halfMode = false;
+  const svcParts = raw => raw.includes(SPLIT) ? raw.split(SPLIT) : [raw, null];
+  function updateHalfBtn() {
+    const btn = $("#picker-half");
+    if (btn) { btn.setAttribute('aria-pressed', String(halfMode)); btn.classList.toggle('active', halfMode); }
   }
   function openPicker(key) {
     if (!key || !ready || failed) return;
     pickKey = key;
-    refreshPicker();
+    halfMode = false;
+    const [day, staffId, turn] = key.split('|');
+    const person = (state.staffByDay[day] || []).find(p => p.id === staffId);
+    const raw = state.entries[key] || '';
+    const [a, b] = svcParts(raw);
+    $("#picker-sub").textContent = `${person ? person.name : ''} · Turn ${turn}`;
+    updateHalfBtn();
+    $("#opt-grid").innerHTML = state.services.length
+      ? state.services.map(s => `<button type="button" class="opt ${(s === a || s === b) ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')
+      : `<p class="picker-empty">No services yet — add them in Settings.</p>`;
+    $("#picker-clear").hidden = !raw;
     servicePicker.hidden = false;
   }
-  const closePicker = () => { servicePicker.hidden = true; };
-  function toggleSvc(s) {
-    if (!pickKey || !s) return;
-    let parts = curParts();
-    if (parts.includes(s)) parts = parts.filter(x => x !== s); // tapped again → remove
-    else if (parts.length < 2) parts.push(s);                  // add (2nd = half turn)
-    else parts = [parts[0], s];                                // already a pair → replace 2nd half
-    if (parts.length) state.entries[pickKey] = parts.join(SPLIT); else delete state.entries[pickKey];
-    save(); renderBoard();
-    if (parts.length === 2) finishPicker(); else refreshPicker();
+  const closePicker = () => { servicePicker.hidden = true; halfMode = false; };
+  function pickService(svc) {
+    if (!pickKey || !svc) return;
+    const raw = state.entries[pickKey] || '';
+    const split = raw.includes(SPLIT);
+    const [a, b] = svcParts(raw);
+    let val;
+    if (svc === a || svc === b) {                 // tapped an existing service → remove that half
+      if (!split) val = '';
+      else { const kept = [a, b].map(x => x === svc ? '' : x).filter(Boolean); val = kept.length ? kept[0] + SPLIT + (kept[1] || '') : ''; }
+    } else if (halfMode) {                        // ♥ then a service → start a half turn (red)
+      val = svc + SPLIT;
+    } else if (isHalf(raw)) {                      // cell is a half → fill the empty side (green)
+      val = a ? a + SPLIT + svc : svc + SPLIT + b;
+    } else {                                       // whole cell = a full turn (green)
+      val = svc;
+    }
+    if (val) state.entries[pickKey] = val; else delete state.entries[pickKey];
+    save(); renderBoard(); finishPicker();
   }
   function finishPicker() {
     const key = pickKey;
     closePicker();
-    if (!key || !hasService(state.entries[key] || '')) return;
+    if (!key || !isComplete(state.entries[key] || '')) return;
     const turn = Number(key.split('|')[2]);
     if (turnComplete(state.activeDay, turn) && turn < TURN_COUNT) {
       if (expandedTurns) {
@@ -339,15 +354,15 @@
       }
     }
   }
+  $("#picker-half").addEventListener("click", () => { halfMode = !halfMode; updateHalfBtn(); });
   $("#opt-grid").addEventListener("click", event => {
     const o = event.target.closest(".opt");
-    if (o) toggleSvc(o.dataset.svc);
+    if (o) pickService(o.dataset.svc);
   });
-  $("#picker-clear").addEventListener("click", () => { if (pickKey) { delete state.entries[pickKey]; save(); renderBoard(); } finishPicker(); });
-  $("#picker-done").addEventListener("click", finishPicker);
-  $("#picker-x").addEventListener("click", finishPicker);
-  servicePicker.addEventListener("click", event => { if (event.target === servicePicker) finishPicker(); });
-  document.addEventListener("keydown", event => { if (event.key === "Escape" && !servicePicker.hidden) finishPicker(); });
+  $("#picker-clear").addEventListener("click", () => { if (pickKey) { delete state.entries[pickKey]; save(); renderBoard(); } closePicker(); });
+  $("#picker-x").addEventListener("click", closePicker);
+  servicePicker.addEventListener("click", event => { if (event.target === servicePicker) closePicker(); });
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && !servicePicker.hidden) closePicker(); });
 
   $('#toggle-turn-view').addEventListener('click', () => {
     expandedTurns = !expandedTurns;
