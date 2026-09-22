@@ -65,7 +65,7 @@ export async function getSession(request, env) {
 // PIN config is stored in the board table at reserved ids 100+loc (101, 102) so
 // no new D1 table is needed. An unlock cookie value is derived from the account
 // epoch + the PIN hash, so it cannot be forged and rotates when either changes.
-const PIN_LIFETIME = 8 * 60 * 60;
+const PIN_LIFETIME = 400 * 24 * 60 * 60; // ~400 days: enter the PIN once per device (max a browser keeps a cookie)
 const pinCookieName = loc => `__Host-ava-pin${loc}`;
 const pinCookie = (loc, token, age) => `${pinCookieName(loc)}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax${age === null ? '' : '; Max-Age=' + age}`;
 const readPinCookie = (request, loc) => {
