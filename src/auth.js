@@ -135,6 +135,10 @@ export async function pinRoute(request, env, session) {
     await env.DB.prepare('DELETE FROM board WHERE id = ?').bind(100 + loc).run();
     return jsonAuth({ok:true},200,{'Set-Cookie':pinCookie(loc, '', 0)});
   }
+  if (path === '/api/pin/lock') {
+    // Re-lock this device for this location: clear the unlock cookie. Safe without the PIN.
+    return jsonAuth({ok:true},200,{'Set-Cookie':pinCookie(loc, '', 0)});
+  }
   return jsonAuth({error:'Not found'},404);
 }
 export async function authRoute(request, env, assets) {

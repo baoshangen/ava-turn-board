@@ -54,6 +54,15 @@ assert.equal(pin2b,pin2,'Unlock cookie is deterministic for the same PIN');
 assert.equal((await call('/api/board?loc=2',{headers:{Cookie:session+'; '+pin2b}})).status,200,'loc2 viewable after unlock');
 assert.equal((await (await call('/api/pin/status?loc=2',{headers:{Cookie:session+'; '+pin2b}})).json()).unlocked,true);
 
+// "Lock now" re-locks this device without needing the PIN; viewing needs the PIN again.
+const lockRes=await call('/api/pin/lock?loc=2',{method:'POST',body:{},headers:{Cookie:session+'; '+pin2b}});
+assert.equal(lockRes.status,200,'Lock succeeds');
+assert.match(lockRes.headers.get('Set-Cookie'),/^__Host-ava-pin2=;.*Max-Age=0/,'Lock clears the unlock cookie');
+assert.equal((await call('/api/board?loc=2',{headers:{Cookie:session+'; '+cookie(lockRes)}})).status,403,'loc2 locked again after Lock');
+assert.equal((await call('/api/pin/lock?loc=2',{method:'POST',body:{}})).status,401,'Lock needs sign-in');
+// Re-unlock with the correct PIN works again.
+assert.equal((await call('/api/pin/unlock?loc=2',{method:'POST',body:{pin:'123456'},headers:sh})).status,200,'Re-unlock after lock');
+
 // Changing the PIN requires the current PIN; a wrong/absent current is rejected.
 assert.equal((await call('/api/pin/set?loc=2',{method:'POST',body:{pin:'999999'},headers:sh})).status,403,'Change needs current PIN');
 assert.equal((await call('/api/pin/set?loc=2',{method:'POST',body:{pin:'999999',current:'123456'},headers:sh})).status,200,'Change with current PIN works');

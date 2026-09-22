@@ -349,6 +349,7 @@
       stateEl.textContent = j.pinSet ? "ON" : "OFF";
       $("#pin-current").hidden = !j.pinSet;
       $("#pin-off").hidden = !j.pinSet;
+      $("#pin-lock").hidden = !(j.pinSet && j.unlocked);
     } catch (_) { stateEl.textContent = ""; }
   }
   $("#pin-save").addEventListener("click", async () => {
@@ -374,6 +375,15 @@
       msg.textContent = "PIN turned off.";
       refreshPinSettings();
     } catch (err) { msg.textContent = err.message; }
+  });
+  $("#pin-lock").addEventListener("click", async () => {
+    if (!confirm("Lock this location on this device? You'll need the PIN to view it again.")) return;
+    try {
+      const r = await fetch('/api/pin/lock?loc=' + activeLoc, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+      if (!r.ok) throw new Error("Could not lock.");
+      $("#settings-dialog").close();
+      lockForPin();
+    } catch (err) { $("#pin-settings-msg").textContent = err.message; }
   });
   $("#pin-form").addEventListener("submit", async (event) => {
     event.preventDefault();
