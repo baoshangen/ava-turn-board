@@ -54,7 +54,7 @@
         }
         if (response.status === 401) { $('#sign-in-again').hidden = false; throw new Error('Your session expired. Unsaved changes are still here. Tap Sign in again.'); }
         if (!response.ok) throw new Error('Could not save. Keep this page open and tap Retry.');
-        revision = (await response.json()).revision; baseState = sent; renderBoard();
+        revision = (await response.json()).revision; baseState = sent; dirty = false; renderBoard();
         status('Synced across devices');
       } else {
         const response = await fetch('/api/board?loc='+activeLoc, {cache:'no-store'});
@@ -79,10 +79,11 @@
   }
   let expandedTurns = false;
   let pinLocked = false;
+  let dirty = false; // true only after a real user edit that isn't saved yet
   let toastTimer;
 
   const $ = selector => document.querySelector(selector);
-  const save = () => { pending = true; status('Saving…'); sync(); };
+  const save = () => { pending = true; dirty = true; status('Saving…'); sync(); };
   const escapeHtml = value => String(value).replace(/[&<>"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
   const entryKey = (day, staffId, turn) => `${day}|${staffId}|${turn}`;
   // A turn column is "done" when every assigned technician has a service for it.
@@ -118,10 +119,10 @@
   }
   function switchLocation(n) {
     if (n === activeLoc || LOCKED) return;
-    if ((pending || saving || failed) && !confirm("Switch location? Unsaved changes on this device will be discarded.")) return;
+    if (dirty && !confirm("Switch location? Unsaved changes on this device will be discarded.")) return;
     activeLoc = n;
     try { localStorage.setItem("ava-turn-board-loc", String(n)); } catch (_) {}
-    revision = 0; baseState = null; ready = false; pending = false; saving = false; failed = false;
+    revision = 0; baseState = null; ready = false; pending = false; saving = false; failed = false; dirty = false;
     $("#retry-sync").hidden = true; $("#sign-in-again").hidden = true;
     unlockUI();
     state = loadState();
@@ -458,7 +459,7 @@
   }).catch(() => {});
   window.addEventListener('focus', () => { if (!failed) sync(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !failed) sync(); });
-  window.addEventListener('beforeunload', event => { if (pending || saving || failed) { event.preventDefault(); event.returnValue = ''; } });
+  window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
   window.addEventListener('resize', () => { renderBoard(); updateDayArrows(); });
   setInterval(() => { if (ready && !pending && !saving && !failed && !document.querySelector('select:focus, input:focus')) sync(); }, 3000);
   sync();
