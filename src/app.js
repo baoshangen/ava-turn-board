@@ -163,12 +163,21 @@
     renderLocation();
   }
 
+  const TECH_COL = 118; // keep in sync with .turn-table thead th:first-child width in styles.css
   function renderBoard() {
     const turns = visibleTurns();
     $('.app-shell').classList.toggle('expanded-turns', expandedTurns);
     $('#toggle-turn-view').textContent = expandedTurns ? 'Collapse' : 'Expand';
     $('#toggle-turn-view').setAttribute('aria-pressed', String(expandedTurns));
     $('.turn-controls').hidden = expandedTurns;
+    // Collapse keeps 2–3 turns but stretches those cells to fill the width (no
+    // blank on the right); the tech column stays fixed. Expand keeps 56px squares.
+    const table = $('.turn-table');
+    if (expandedTurns) table.style.removeProperty('--tw');
+    else {
+      const wrapW = ($('.table-wrap')?.clientWidth) || window.innerWidth;
+      table.style.setProperty('--tw', Math.max(56, Math.floor((wrapW - TECH_COL) / turns.length)) + 'px');
+    }
     const staff = state.staffByDay[state.activeDay] || [];
     $("#active-day-title").textContent = state.activeDay;
     $("#reset-day").disabled = !ready || failed;
@@ -345,8 +354,14 @@
     $('.table-wrap').scrollLeft = 0;
     renderBoard();
   });
+  // Recompute the collapse cell width when the window is resized/rotated.
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (ready) renderBoard(); }, 150);
+  });
 
-  // Full-screen focus: hide the top chrome so the board fills the screen.
+  // Full-screen focus: only hide the top chrome; keep the current view unchanged.
   let focusMode = false;
   function setFocus(on) {
     focusMode = on;
