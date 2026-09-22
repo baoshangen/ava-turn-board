@@ -49,9 +49,9 @@ const parseInput = async request => {
   if (!data || typeof data.username !== 'string' || typeof data.password !== 'string' || data.username.length > 40 || data.password.length > 128) throw new Error('input');
   return {username:data.username.trim().toLowerCase(), password:data.password, remember:data.remember === true, setupKey:typeof data.setupKey === 'string' && data.setupKey.length <= 256 ? data.setupKey : ''};
 };
-async function throttle(request, env) {
+async function throttle(request, env, scope = 'login') {
   const now = Date.now(), windowEnd = (Math.floor(now / 900000) + 1) * 900000;
-  const key = await digest((request.headers.get('CF-Connecting-IP') || 'shared') + ':' + windowEnd);
+  const key = await digest(scope + ':' + (request.headers.get('CF-Connecting-IP') || 'shared') + ':' + windowEnd);
   const row = await env.DB.prepare('INSERT INTO login_attempts (key, attempts, expires_at) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET attempts = attempts + 1 RETURNING attempts').bind(key, windowEnd).first();
   await env.DB.prepare('DELETE FROM login_attempts WHERE expires_at < ?').bind(now).run();
   return row.attempts <= 10;
@@ -60,6 +60,82 @@ export async function getSession(request, env) {
   const token = readToken(request);
   if (!token) return null;
   return env.DB.prepare('SELECT a.username FROM salon_sessions s JOIN salon_account a ON a.id = 1 AND a.epoch = s.epoch WHERE s.token_hash = ? AND s.expires_at > ?').bind(await digest(token), Date.now()).first();
+}
+// ---- Per-location view PIN (server-enforced) ----
+// PIN config is stored in the board table at reserved ids 100+loc (101, 102) so
+// no new D1 table is needed. An unlock cookie value is derived from the account
+// epoch + the PIN hash, so it cannot be forged and rotates when either changes.
+const PIN_LIFETIME = 8 * 60 * 60;
+const pinCookieName = loc => `__Host-ava-pin${loc}`;
+const pinCookie = (loc, token, age) => `${pinCookieName(loc)}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax${age === null ? '' : '; Max-Age=' + age}`;
+const readPinCookie = (request, loc) => {
+  const name = pinCookieName(loc);
+  const value = (request.headers.get('Cookie') || '').split(';').map(x => x.trim()).find(x => x.startsWith(name + '='))?.slice(name.length + 1);
+  return value && /^[a-f0-9]{64}$/.test(value) ? value : null;
+};
+const readJson = async (request, max = 2048) => {
+  if (!request.headers.get('Content-Type')?.startsWith('application/json')) return {};
+  const reader = request.body?.getReader(); if (!reader) return {};
+  let body = '', size = 0; const dec = new TextDecoder();
+  while (true) { const {done,value} = await reader.read(); if (done) break; size += value.byteLength; if (size > max) { await reader.cancel(); return {}; } body += dec.decode(value,{stream:true}); }
+  body += dec.decode();
+  try { const d = JSON.parse(body); return d && typeof d === 'object' ? d : {}; } catch { return {}; }
+};
+async function pinRow(env, loc) {
+  const row = await env.DB.prepare('SELECT data FROM board WHERE id = ?').bind(100 + loc).first();
+  if (!row) return null;
+  try { const d = JSON.parse(row.data); return d && d.hash && d.salt ? d : null; } catch { return null; }
+}
+async function expectedUnlock(env, loc, hashHex) {
+  const account = await env.DB.prepare('SELECT epoch FROM salon_account WHERE id = 1').first();
+  return digest((account?.epoch || '') + '|' + hashHex + '|' + loc);
+}
+const verifyPin = async (candidate, pin) => typeof candidate === 'string' && candidate.length > 0 && constantEqual(await hashPassword(candidate, pin.salt), unhex(pin.hash));
+export async function pinGate(request, env, loc) {
+  const pin = await pinRow(env, loc);
+  if (!pin) return { pinSet: false, ok: true };
+  const cookie = readPinCookie(request, loc);
+  if (!cookie) return { pinSet: true, ok: false };
+  const expected = await expectedUnlock(env, loc, pin.hash);
+  return { pinSet: true, ok: constantEqual(encoder.encode(cookie), encoder.encode(expected)) };
+}
+export async function pinRoute(request, env, session) {
+  const url = new URL(request.url), path = url.pathname;
+  const loc = [1,2].includes(Number(url.searchParams.get('loc'))) ? Number(url.searchParams.get('loc')) : 1;
+  if (path === '/api/pin/status' && request.method === 'GET') {
+    const gate = await pinGate(request, env, loc);
+    return jsonAuth({ pinSet: gate.pinSet, unlocked: gate.pinSet ? gate.ok : true });
+  }
+  if (request.method !== 'POST') return jsonAuth({error:'Method not allowed'},405);
+  if (request.headers.get('Origin') !== url.origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') return jsonAuth({error:'Invalid request.'},403);
+  const body = await readJson(request);
+  if (path === '/api/pin/unlock') {
+    if (!(await throttle(request, env, 'pin' + loc))) return jsonAuth({error:'Too many attempts. Please wait up to 15 minutes.'},429,{'Retry-After':'900'});
+    const pin = await pinRow(env, loc);
+    if (!pin) return jsonAuth({ok:true});
+    if (!(await verifyPin(String(body.pin ?? ''), pin))) return jsonAuth({error:'Wrong PIN.'},401);
+    const token = await expectedUnlock(env, loc, pin.hash);
+    return jsonAuth({ok:true},200,{'Set-Cookie':pinCookie(loc, token, PIN_LIFETIME)});
+  }
+  // Setting or removing a PIN requires a signed-in owner.
+  if (!session) return jsonAuth({error:'Sign in required'},401);
+  if (path === '/api/pin/set') {
+    const newPin = String(body.pin ?? '');
+    if (!/^\d{4,10}$/.test(newPin)) return jsonAuth({error:'PIN must be 4-10 digits.'},400);
+    const existing = await pinRow(env, loc);
+    if (existing && !(await verifyPin(String(body.current ?? ''), existing))) return jsonAuth({error:'Wrong current PIN.'},403);
+    const salt = random(32), hashHex = hex(await hashPassword(newPin, salt));
+    await env.DB.prepare('INSERT INTO board (id, revision, data) VALUES (?, 1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, revision = board.revision + 1').bind(100 + loc, JSON.stringify({hash:hashHex, salt})).run();
+    const token = await expectedUnlock(env, loc, hashHex);
+    return jsonAuth({ok:true},200,{'Set-Cookie':pinCookie(loc, token, PIN_LIFETIME)});
+  }
+  if (path === '/api/pin/remove') {
+    const existing = await pinRow(env, loc);
+    if (existing && !(await verifyPin(String(body.current ?? ''), existing))) return jsonAuth({error:'Wrong current PIN.'},403);
+    await env.DB.prepare('DELETE FROM board WHERE id = ?').bind(100 + loc).run();
+    return jsonAuth({ok:true},200,{'Set-Cookie':pinCookie(loc, '', 0)});
+  }
+  return jsonAuth({error:'Not found'},404);
 }
 export async function authRoute(request, env, assets) {
   const url = new URL(request.url), path = url.pathname;

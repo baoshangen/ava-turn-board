@@ -42,6 +42,7 @@
         pending = false;
         const sent = JSON.parse(JSON.stringify(shared()));
         const response = await fetch('/api/board?loc='+activeLoc, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({revision, data:sent}) });
+        if (response.status === 403 && (await response.json().catch(()=>({}))).pinRequired) { pending = true; lockForPin(); return; }
         if (response.status === 409) {
           const latest = await fetch('/api/board?loc='+activeLoc, {cache:'no-store'});
           if (!latest.ok) throw new Error('Could not connect. Keep this page open and tap Retry.');
@@ -57,6 +58,7 @@
         status('Synced across devices');
       } else {
         const response = await fetch('/api/board?loc='+activeLoc, {cache:'no-store'});
+        if (response.status === 403 && (await response.json().catch(()=>({}))).pinRequired) { lockForPin(); return; }
         if (response.status === 401) { $('#sign-in-again').hidden = false; throw new Error('Your session expired. Tap Sign in again.'); }
         if (!response.ok) throw new Error('Could not connect. Tap Retry.');
         const remote = await response.json();
@@ -76,6 +78,7 @@
     }
   }
   let expandedTurns = false;
+  let pinLocked = false;
   let toastTimer;
 
   const $ = selector => document.querySelector(selector);
@@ -120,9 +123,26 @@
     try { localStorage.setItem("ava-turn-board-loc", String(n)); } catch (_) {}
     revision = 0; baseState = null; ready = false; pending = false; saving = false; failed = false;
     $("#retry-sync").hidden = true; $("#sign-in-again").hidden = true;
+    unlockUI();
     state = loadState();
     renderTabs(); renderBoard(); if ($("#settings-dialog").open) renderSettings();
     status("Connecting…"); sync();
+  }
+
+  function lockForPin() {
+    pinLocked = true;
+    ready = false;
+    status("Locked");
+    const label = $("#pin-loc-name"); if (label) label.textContent = state.name || ("Location " + activeLoc);
+    const err = $("#pin-error"); if (err) err.textContent = "";
+    const input = $("#pin-input"); if (input) input.value = "";
+    document.querySelector(".app-shell").classList.add("pin-locked");
+    if ($("#settings-dialog").open) $("#settings-dialog").close();
+    if (input) input.focus();
+  }
+  function unlockUI() {
+    pinLocked = false;
+    document.querySelector(".app-shell").classList.remove("pin-locked");
   }
 
   function updateDayArrows() {
@@ -309,6 +329,7 @@
     renderSettings();
     $("#settings-day").value = state.activeDay;
     renderSettings();
+    refreshPinSettings();
     $("#settings-dialog").showModal();
   });
   $("#settings-day").addEventListener("change", renderSettings);
@@ -317,6 +338,54 @@
   $("#add-service").addEventListener("click", addService);
   $("#new-service").addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); addService(); } });
   $("#location-name").addEventListener("change", event => { if (!ready || failed) return; state.name = event.target.value.trim(); save(); renderLocation(); });
+
+  async function refreshPinSettings() {
+    const stateEl = $("#pin-state"); if (!stateEl) return;
+    $("#pin-settings-msg").textContent = "";
+    $("#pin-new").value = ""; $("#pin-current").value = "";
+    try {
+      const r = await fetch('/api/pin/status?loc=' + activeLoc, {cache:'no-store'});
+      const j = await r.json();
+      stateEl.textContent = j.pinSet ? "ON" : "OFF";
+      $("#pin-current").hidden = !j.pinSet;
+      $("#pin-off").hidden = !j.pinSet;
+    } catch (_) { stateEl.textContent = ""; }
+  }
+  $("#pin-save").addEventListener("click", async () => {
+    const msg = $("#pin-settings-msg"); msg.textContent = "";
+    const pin = $("#pin-new").value.trim(), current = $("#pin-current").value.trim();
+    if (!/^\d{4,10}$/.test(pin)) { msg.textContent = "PIN must be 4-10 digits."; return; }
+    try {
+      const r = await fetch('/api/pin/set?loc=' + activeLoc, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pin, current})});
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok) throw new Error(j.error || "Could not save PIN.");
+      msg.textContent = "PIN saved for " + (state.name || ("Location " + activeLoc)) + ".";
+      refreshPinSettings();
+    } catch (err) { msg.textContent = err.message; }
+  });
+  $("#pin-off").addEventListener("click", async () => {
+    const msg = $("#pin-settings-msg"); msg.textContent = "";
+    if (!confirm("Turn off the PIN for this location? Anyone signed in can then view it.")) return;
+    const current = $("#pin-current").value.trim();
+    try {
+      const r = await fetch('/api/pin/remove?loc=' + activeLoc, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({current})});
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok) throw new Error(j.error || "Could not turn off PIN.");
+      msg.textContent = "PIN turned off.";
+      refreshPinSettings();
+    } catch (err) { msg.textContent = err.message; }
+  });
+  $("#pin-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#pin-error"); err.textContent = "";
+    const pin = $("#pin-input").value.trim();
+    try {
+      const r = await fetch('/api/pin/unlock?loc=' + activeLoc, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pin})});
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok) throw new Error(j.error || "Wrong PIN.");
+      unlockUI(); ready = false; failed = false; status("Connecting…"); sync();
+    } catch (e) { err.textContent = e.message; }
+  });
 
   $("#technician-list").addEventListener("click", event => {
     const button = event.target.closest("[data-remove-tech]");

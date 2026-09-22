@@ -66,6 +66,18 @@
         <button id="next-turn" class="arrow-button" type="button" aria-label="Show later turns">›</button>
       </div>
     </section>
+
+    <section id="pin-screen" class="pin-screen" aria-live="polite">
+      <div class="pin-card">
+        <h2>Locked</h2>
+        <p>Enter the PIN to view <strong id="pin-loc-name">this location</strong>.</p>
+        <form id="pin-form">
+          <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="PIN" aria-label="PIN" />
+          <p id="pin-error" role="alert"></p>
+          <button type="submit">Unlock</button>
+        </form>
+      </div>
+    </section>
   </main>
 
   <dialog id="settings-dialog" class="settings-dialog">
@@ -112,6 +124,15 @@
             <button id="add-service" type="button">Add</button>
           </div>
         </section>
+      </div>
+
+      <div class="pin-settings">
+        <h3>View PIN <span id="pin-state"></span></h3>
+        <p>Require a PIN to view this location. Only people with the PIN can see the board.</p>
+        <div class="add-row"><input id="pin-current" type="password" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="Current PIN" hidden /></div>
+        <div class="add-row"><input id="pin-new" type="password" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="New PIN (4-10 digits)" /><button id="pin-save" type="button">Save</button></div>
+        <div class="add-row"><button id="pin-off" type="button" class="danger-button" hidden>Turn off PIN</button></div>
+        <p id="pin-settings-msg" class="pin-msg"></p>
       </div>
 
       <div class="dialog-footer">

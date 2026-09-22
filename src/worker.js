@@ -1,4 +1,4 @@
-import { authRoute, getSession } from './auth.js';
+import { authRoute, getSession, pinRoute, pinGate } from './auth.js';
 const json = (data, status=200) => Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const db = env => { if (!env.DB) throw new Error('Database unavailable'); return env.DB; };
 const assetBody = a => a.bin ? Uint8Array.from(atob(a.body), c => c.charCodeAt(0)) : a.body;
@@ -20,12 +20,15 @@ async function handle(request, env) {
     const session = await getSession(request, env);
     if (!session) return url.pathname.startsWith('/api/') ? json({error:'Sign in required'},401) : Response.redirect(url.origin + '/login',302);
     if (url.pathname === '/api/account') return json({email:session.username});
+    if (url.pathname.startsWith('/api/pin/')) return pinRoute(request, env, session);
     if (url.pathname !== '/api/board') {
       if (request.method !== 'GET') return json({error:'Method not allowed'},405);
       const asset = ASSETS[url.pathname === '/' ? '/index.html' : url.pathname];
       return asset ? new Response(assetBody(asset),{headers:{'Content-Type':asset.type}}) : new Response('Not found',{status:404});
     }
    const boardId = [1,2].includes(Number(url.searchParams.get('loc'))) ? Number(url.searchParams.get('loc')) : 1;
+   const gate = await pinGate(request, env, boardId);
+   if (gate.pinSet && !gate.ok) return json({error:'PIN required', pinRequired:true}, 403);
    if(request.method==='GET') {
     const row=await db(env).prepare('SELECT revision, data FROM board WHERE id = ?').bind(boardId).first();
     return json(row ? {revision:row.revision,data:JSON.parse(row.data)} : {revision:0,data:null});
