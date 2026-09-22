@@ -347,13 +347,10 @@
   function setFocus(on) {
     focusMode = on;
     $('.app-shell').classList.toggle('focus-mode', on);
-    const btn = $('#focus-toggle');
-    btn.textContent = on ? '✕ Exit full screen' : '⛶ Full screen';
-    btn.setAttribute('aria-pressed', String(on));
     window.scrollTo(0, 0);
   }
-  $('#focus-toggle').addEventListener('click', () => setFocus(!focusMode));
   $('#active-day-title').addEventListener('click', () => setFocus(!focusMode));
+  $('#focus-exit').addEventListener('click', () => setFocus(false));
 
   // Belt-and-suspenders against accidental double-tap zoom: cancel only a
   // second tap at (almost) the same spot within 300ms (that IS the zoom
