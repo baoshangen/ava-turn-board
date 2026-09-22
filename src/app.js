@@ -196,7 +196,7 @@
         const isSplit = raw.includes(SPLIT);
         const dis = person && ready && !failed ? '' : 'disabled';
         const label = escapeHtml(person?.name || 'Unassigned');
-        const opts = sel => `<option value=""></option>${[...new Set([...state.services, ...(sel ? [sel] : [])])].map(s => `<option value="${escapeHtml(s)}" ${sel === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}`;
+        const opts = sel => `<option value="">${sel ? '— Remove —' : ''}</option>${[...new Set([...state.services, ...(sel ? [sel] : [])])].map(s => `<option value="${escapeHtml(s)}" ${sel === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}`;
         const heart = person ? `<button type="button" class="split-toggle" data-split-key="${escapeHtml(key)}" ${dis} aria-label="Split into two services" aria-pressed="${isSplit}">♥</button>` : '';
         if (isSplit) {
           const [a = '', b = ''] = raw.split(SPLIT);
