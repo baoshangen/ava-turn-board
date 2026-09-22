@@ -273,28 +273,49 @@
     save(); renderBoard();
   });
 
-  // Service picker: tap a cell to open. Tap a name = 1 service (whole cell);
-  // tap the ♥ next to a service = add it as a second service, shown "A/B".
+  // Service picker: tap a cell to open, then tap service names. The first tap
+  // fills the whole cell; a second (different) service joins as "A/B" — a half
+  // turn (like the Numbers sheet's "Pe/ma"). Tapping a selected service again
+  // removes it, so the same service twice clears it (never "Pe/Pe"). Picking a
+  // second service auto-closes; for a single service tap Done (or outside).
   const servicePicker = $("#service-picker");
   let pickKey = null;
+  const curParts = () => {
+    const raw = state.entries[pickKey] || '';
+    return raw.includes(SPLIT) ? raw.split(SPLIT).filter(Boolean) : (raw ? [raw] : []);
+  };
+  function refreshPicker() {
+    const parts = curParts();
+    const [day, staffId, turn] = pickKey.split('|');
+    const person = (state.staffByDay[day] || []).find(p => p.id === staffId);
+    const preview = parts.join('/');
+    $("#picker-sub").textContent = `${person ? person.name : ''} · Turn ${turn}${preview ? ' · ' + preview : ''}`;
+    $("#opt-grid").innerHTML = state.services.length
+      ? state.services.map(s => `<button type="button" class="opt ${parts.includes(s) ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}${parts.includes(s) ? ' ✓' : ''}</button>`).join('')
+      : `<p class="picker-empty">No services yet — add them in Settings.</p>`;
+    $("#picker-clear").hidden = parts.length === 0;
+  }
   function openPicker(key) {
     if (!key || !ready || failed) return;
     pickKey = key;
-    const raw = state.entries[key] || '';
-    const parts = raw.includes(SPLIT) ? raw.split(SPLIT).filter(Boolean) : (raw ? [raw] : []);
-    const [day, staffId, turn] = key.split('|');
-    const person = (state.staffByDay[day] || []).find(p => p.id === staffId);
-    $("#picker-sub").textContent = `${person ? person.name : ''} · Turn ${turn}`;
-    $("#opt-grid").innerHTML = state.services.length
-      ? state.services.map(s => `<div class="opt-row"><button type="button" class="opt ${parts.includes(s) ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}</button><button type="button" class="opt-heart" data-svc-split="${escapeHtml(s)}" aria-label="Add ${escapeHtml(s)} as a second service">♥</button></div>`).join('')
-      : `<p class="picker-empty">No services yet — add them in Settings.</p>`;
-    $("#picker-clear").hidden = parts.length === 0;
+    refreshPicker();
     servicePicker.hidden = false;
   }
   const closePicker = () => { servicePicker.hidden = true; };
-  function commitCell(key, filled) {
+  function toggleSvc(s) {
+    if (!pickKey || !s) return;
+    let parts = curParts();
+    if (parts.includes(s)) parts = parts.filter(x => x !== s); // tapped again → remove
+    else if (parts.length < 2) parts.push(s);                  // add (2nd = half turn)
+    else parts = [parts[0], s];                                // already a pair → replace 2nd half
+    if (parts.length) state.entries[pickKey] = parts.join(SPLIT); else delete state.entries[pickKey];
     save(); renderBoard();
-    if (!filled) return;
+    if (parts.length === 2) finishPicker(); else refreshPicker();
+  }
+  function finishPicker() {
+    const key = pickKey;
+    closePicker();
+    if (!key || !hasService(state.entries[key] || '')) return;
     const turn = Number(key.split('|')[2]);
     if (turnComplete(state.activeDay, turn) && turn < TURN_COUNT) {
       if (expandedTurns) {
@@ -309,30 +330,15 @@
       }
     }
   }
-  // Tap a service name = one service for the whole cell (collapses any pair).
-  function applyPick(val) {
-    if (!pickKey) return;
-    if (val) state.entries[pickKey] = val; else delete state.entries[pickKey];
-    commitCell(pickKey, !!val);
-  }
-  // Tap ♥ = two services in the cell, shown "A/B" (keep the first, set second).
-  function applyPair(val) {
-    if (!pickKey || !val) return;
-    const cur = state.entries[pickKey] || '';
-    if (!cur) state.entries[pickKey] = val;
-    else { const first = cur.includes(SPLIT) ? cur.split(SPLIT)[0] : cur; state.entries[pickKey] = first + SPLIT + val; }
-    commitCell(pickKey, true);
-  }
   $("#opt-grid").addEventListener("click", event => {
-    const sp = event.target.closest("[data-svc-split]");
-    if (sp) { applyPair(sp.dataset.svcSplit); closePicker(); return; }
     const o = event.target.closest(".opt");
-    if (o) { applyPick(o.dataset.svc); closePicker(); }
+    if (o) toggleSvc(o.dataset.svc);
   });
-  $("#picker-clear").addEventListener("click", () => { applyPick(''); closePicker(); });
-  $("#picker-x").addEventListener("click", closePicker);
-  servicePicker.addEventListener("click", event => { if (event.target === servicePicker) closePicker(); });
-  document.addEventListener("keydown", event => { if (event.key === "Escape" && !servicePicker.hidden) closePicker(); });
+  $("#picker-clear").addEventListener("click", () => { if (pickKey) { delete state.entries[pickKey]; save(); renderBoard(); } finishPicker(); });
+  $("#picker-done").addEventListener("click", finishPicker);
+  $("#picker-x").addEventListener("click", finishPicker);
+  servicePicker.addEventListener("click", event => { if (event.target === servicePicker) finishPicker(); });
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && !servicePicker.hidden) finishPicker(); });
 
   $('#toggle-turn-view').addEventListener('click', () => {
     expandedTurns = !expandedTurns;
