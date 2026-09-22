@@ -321,12 +321,19 @@
     if (half === 'single') { if (val) state.entries[key] = val; else delete state.entries[key]; }
     else { let [a = '', b = ''] = cur.includes(SPLIT) ? cur.split(SPLIT) : [cur, '']; if (half === 'b') b = val; else a = val; state.entries[key] = a + SPLIT + b; }
     save(); renderBoard();
-    if (val && !expandedTurns) {
+    if (val) {
       const turn = Number(key.split('|')[2]);
-      if (turnComplete(state.activeDay, turn) && turn >= state.centerTurn && state.centerTurn < TURN_COUNT - 1) {
-        state.centerTurn = Math.min(TURN_COUNT - 1, turn + 1);
-        renderBoard();
-        showToast(`Turn ${turn} full → moving to turn ${turn + 1}`);
+      if (turnComplete(state.activeDay, turn) && turn < TURN_COUNT) {
+        if (expandedTurns) {
+          // Expand shows all 15 turns and scrolls sideways — scroll the next turn into view.
+          const nextTh = $('#turn-head').querySelectorAll('th')[turn + 1];
+          if (nextTh) nextTh.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+          showToast(`Turn ${turn} full → turn ${turn + 1}`);
+        } else if (turn >= state.centerTurn && state.centerTurn < TURN_COUNT - 1) {
+          state.centerTurn = Math.min(TURN_COUNT - 1, turn + 1);
+          renderBoard();
+          showToast(`Turn ${turn} full → moving to turn ${turn + 1}`);
+        }
       }
     }
   }
