@@ -46,7 +46,30 @@ async function handle(request, env) {
     return url.pathname.startsWith('/api/') ? json({error:'Temporarily unavailable. Please try again.'},503) : new Response('Temporarily unavailable. Please reload the page.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});
   }
 }
-export default { async fetch(request,env) {
+// Daily auto-reset: clear today's turns at 9:00 AM Chicago time (keeps
+// technicians and services). Cron fires at 14:00 and 15:00 UTC; this guard
+// runs only at the 9 AM Chicago hour, so it lands right through DST changes.
+const RESET_TZ = 'America/Chicago';
+const RESET_HOUR = 9;
+async function autoResetDaily(env) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: RESET_TZ, weekday: 'long', hour: 'numeric', hour12: false }).formatToParts(new Date());
+  const hour = Number(parts.find(p => p.type === 'hour')?.value);
+  const weekday = parts.find(p => p.type === 'weekday')?.value;
+  if (hour !== RESET_HOUR || !weekday) return;
+  const prefix = weekday + '|';
+  for (const id of [1, 2]) {
+    const row = await db(env).prepare('SELECT data FROM board WHERE id = ?').bind(id).first();
+    if (!row) continue;
+    let data; try { data = JSON.parse(row.data); } catch (_) { continue; }
+    if (!data || !data.entries) continue;
+    let changed = false;
+    for (const key of Object.keys(data.entries)) if (key.startsWith(prefix)) { delete data.entries[key]; changed = true; }
+    if (changed) await db(env).prepare('UPDATE board SET data = ?, revision = revision + 1 WHERE id = ?').bind(JSON.stringify(data), id).run();
+  }
+}
+export default {
+  async scheduled(event, env, ctx) { ctx.waitUntil(autoResetDaily(env)); },
+  async fetch(request,env) {
   const response = await handle(request,env);
   const headers = new Headers(response.headers);
   headers.set('Cache-Control','no-store');

@@ -12,6 +12,11 @@ workers_dev = true
 [build]
 command = "npm install && npm run build"
 
+# Daily auto-reset (clears today's turns at 9 AM Chicago; see scheduled() in worker).
+# Fires at 14:00 and 15:00 UTC; the handler acts only at the 9 AM Chicago hour (DST-safe).
+[triggers]
+crons = ["0 14 * * *", "0 15 * * *"]
+
 # D1 database binding.
 # - Browser "Deploy to Cloudflare": leave database_id empty; Cloudflare
 #   provisions the database and fills the id automatically.
