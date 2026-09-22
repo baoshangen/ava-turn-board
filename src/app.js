@@ -90,6 +90,9 @@
   const hasService = v => typeof v === "string" && v.split(SPLIT).some(Boolean);
   const isComplete = v => { if (!v) return false; if (!v.includes(SPLIT)) return true; const [a, b] = v.split(SPLIT); return !!a && !!b; };
   const isHalf = v => { if (typeof v !== "string" || !v.includes(SPLIT)) return false; const [a, b] = v.split(SPLIT); return (!!a) !== (!!b); };
+  // Turn count: a full cell (single or both halves) = 1, one half = 0.5.
+  const turnValue = v => isComplete(v) ? 1 : (isHalf(v) ? 0.5 : 0);
+  const techTurns = (day, id) => { let n = 0; for (let t = 1; t <= TURN_COUNT; t++) n += turnValue(state.entries[entryKey(day, id, t)] || ''); return n; };
   // A turn column is "done" when every assigned technician has a COMPLETE (green) turn.
   const turnComplete = (day, turn) => {
     const assigned = (state.orderByDay[day] || []).filter(id => id);
@@ -203,7 +206,10 @@
     const rows = order.length + (order.length < staff.length ? 1 : 0);
     $("#turn-body").innerHTML = Array.from({length:rows}, (_, index) => {
       const person = staff.find(p => p.id === order[index]);
-      return `<tr><th scope="row"><div class="tech-cell"><span class="arrival-number">${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select></div></th>${turns.map(turn => {
+      // Today's turn count sits where the ▾ arrow was; the empty "Choose tech" row keeps the arrow.
+      const n = person ? techTurns(state.activeDay, person.id) : 0;
+      const badge = person ? `<span class="turn-count ${n ? '' : 'zero'}" aria-label="${n} turns today">${n % 1 ? n.toFixed(1) : n}</span>` : '';
+      return `<tr><th scope="row"><div class="tech-cell ${person ? 'has-count' : ''}"><span class="arrival-number">${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select>${badge}</div></th>${turns.map(turn => {
         const key = person ? entryKey(state.activeDay, person.id, turn) : '';
         if (!person) return `<td></td>`;
         const raw = state.entries[key] || '';
