@@ -355,6 +355,18 @@
   $('#focus-toggle').addEventListener('click', () => setFocus(!focusMode));
   $('#active-day-title').addEventListener('click', () => setFocus(!focusMode));
 
+  // Belt-and-suspenders against accidental double-tap zoom: cancel only a
+  // second tap at (almost) the same spot within 300ms (that IS the zoom
+  // gesture). Two quick taps on different controls, and pinch zoom, still work.
+  let lastTapEnd = 0, lastTapX = 0, lastTapY = 0;
+  document.addEventListener('touchend', event => {
+    const t = event.changedTouches && event.changedTouches[0];
+    const now = Date.now();
+    if (t && now - lastTapEnd <= 300 && Math.abs(t.clientX - lastTapX) < 24 && Math.abs(t.clientY - lastTapY) < 24) event.preventDefault();
+    lastTapEnd = now;
+    if (t) { lastTapX = t.clientX; lastTapY = t.clientY; }
+  }, { passive: false });
+
   $("#turn-slider").addEventListener("input", event => { state.centerTurn = Number(event.target.value); renderBoard(); });
   $("#previous-turn").addEventListener("click", () => { state.centerTurn = Math.max(2, state.centerTurn - 1); renderBoard(); });
   $("#next-turn").addEventListener("click", () => { state.centerTurn = Math.min(TURN_COUNT - 1, state.centerTurn + 1); renderBoard(); });
