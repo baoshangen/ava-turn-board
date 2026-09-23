@@ -54,6 +54,8 @@
 .app-shell.focus-mode{grid-template-columns:minmax(0,1fr);padding-top:64px}
 .app-shell.focus-mode .topbar,.app-shell.focus-mode .sync-row,.app-shell.focus-mode .location-row,.app-shell.focus-mode .day-nav{display:none}
 .app-shell.focus-mode #focus-exit{display:flex;align-items:center;justify-content:center}
+#focus-toggle{font-size:18px;line-height:1;padding:8px 12px}
+.app-shell.focus-mode #focus-toggle{display:none}
 /* Collapse keeps 2–3 turns but stretches them to fill the width (no blank on the right);
    Expand keeps the 56px squares (width:max-content, scrolls if needed). */
 .app-shell:not(.expanded-turns) .turn-table{width:100%}

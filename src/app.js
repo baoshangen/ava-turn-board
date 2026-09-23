@@ -394,6 +394,7 @@
     window.scrollTo(0, 0);
   }
   $('#active-day-title').addEventListener('click', () => setFocus(!focusMode));
+  $('#focus-toggle').addEventListener('click', () => setFocus(true));
   $('#focus-exit').addEventListener('click', () => setFocus(false));
 
   // Belt-and-suspenders against accidental double-tap zoom: cancel only a
