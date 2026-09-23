@@ -12,6 +12,7 @@
 .pick-area{flex:1;display:flex;flex-direction:column;min-width:0}
 .pick{flex:1;min-height:32px;border:0;border-radius:0;background:transparent;text-align:center;padding:2px 3px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:500;color:#8b9096;width:100%;font-size:13px}
 .pick .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.cell-heart{color:#e5484d;font-size:11px;line-height:1;margin-right:2px;flex:none}
 .pick .txt.add{color:#aeb3b9;font-weight:600}
 .pick.full{color:var(--accent-deep);background-color:var(--green);font-weight:600}
 .pick.half{color:#b42318;background-color:#fde7e7;font-weight:600}

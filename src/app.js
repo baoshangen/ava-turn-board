@@ -216,9 +216,12 @@
         const dis = ready && !failed ? '' : 'disabled';
         const label = escapeHtml(person.name || '');
         // A split shows on one line with a slash: "Pe␟"→"Pe/" (half), "Pe␟Nc"→"Pe/Nc" (full).
-        const disp = raw.includes(SPLIT) ? raw.split(SPLIT).join('/') : raw;
+        const split = raw.includes(SPLIT);
+        const disp = split ? raw.split(SPLIT).join('/') : raw;
         const cls = isComplete(raw) ? 'full' : (isHalf(raw) ? 'half' : '');
-        const inner = disp ? `<span class="txt">${escapeHtml(disp)}</span>` : '<span class="txt add">＋</span>';
+        // A ♥ marks a split (half-turn) cell so it's spottable on the board.
+        const heart = split ? '<span class="cell-heart" aria-hidden="true">\u2665</span>' : '';
+        const inner = disp ? `${heart}<span class="txt">${escapeHtml(disp)}</span>` : '<span class="txt add">＋</span>';
         return `<td><div class="cell-wrap"><button type="button" class="pick ${cls}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn} — choose service">${inner}</button></div></td>`;
       }).join('')}</tr>`;
     }).join('');
