@@ -307,7 +307,7 @@
   const svcParts = raw => raw.includes(SPLIT) ? raw.split(SPLIT) : [raw, null];
   function updateHalfBtn() {
     const btn = $("#picker-half");
-    if (btn) { btn.setAttribute('aria-pressed', String(halfMode)); btn.classList.toggle('active', halfMode); }
+    if (btn) { btn.setAttribute('aria-pressed', String(halfMode)); btn.classList.toggle('active', halfMode); btn.textContent = halfMode ? '♥' : '♡'; }
   }
   function openPicker(key) {
     if (!key || !ready || failed) return;
@@ -333,8 +333,9 @@
     const split = raw.includes(SPLIT);
     const [a, b] = svcParts(raw);
     let val;
-    if (halfMode) {                                // ♥ then a service → start a half turn (red)
-      val = svc + SPLIT;
+    if (halfMode) {                                // ♥ = one half turn → fill the next empty half (♥ twice = "Pe/Pe")
+      if (!split && !raw) { val = svc + SPLIT; }
+      else { let [x, y] = split ? raw.split(SPLIT) : [raw, '']; if (!x) x = svc; else y = svc; val = x + SPLIT + y; }
     } else if (isHalf(raw)) {                      // half cell → fill the empty side, same service allowed ("Pe/Pe")
       val = a ? a + SPLIT + svc : svc + SPLIT + b;
     } else if (svc === a || svc === b) {          // tapped an existing service → remove it
