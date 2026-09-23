@@ -31,7 +31,7 @@
   if (!state.orderByDay) state.orderByDay = Object.fromEntries(DAYS.map(day => [day, state.staffByDay[day].map(p => p.id)]));
   let baseState = null;
   let revision = 0, ready = false, saving = false, pending = false, failed = false;
-  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name });
+  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name, halfTurns: state.halfTurns });
   const status = message => { document.querySelector('#sync-status').textContent = message; };
   async function sync() {
     if (saving || failed) return;
@@ -229,6 +229,7 @@
     if (!settingsDay.options.length) settingsDay.innerHTML = DAYS.map(day => `<option value="${day}">${day}</option>`).join("");
     settingsDay.value = settingsDay.value || state.activeDay;
     const locInput = $("#location-name"); if (locInput) locInput.value = state.name || "";
+    const halfBox = $("#half-turns"); if (halfBox) halfBox.checked = halfTurnsOn();
     const staff = state.staffByDay[settingsDay.value] || [];
     $("#technician-list").innerHTML = staff.length ? staff.map(person => `
       <div class="list-item"><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-tech="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
@@ -295,12 +296,14 @@
 
   // Service picker: tap a cell to open. Tap a service name = whole cell (a full
   // turn, green) and close. Tap ♥ first, then a service = start a half turn
-  // ("Pe/", red); the next pick (reopen) fills the other half → "Pe/Nc" (green).
-  // Tapping a service already in the cell removes just that half; the red
-  // "Remove service" button clears the whole cell. No checkmarks.
+  // ("Pe/", red); on a half cell the next pick always fills the empty side, even
+  // the same service ("Pe/Pe"). Tapping a service already in a single or full
+  // cell removes it; the red "Remove service" button clears the whole cell.
+  // ♥ can be turned off per location in Settings (state.halfTurns).
   const servicePicker = $("#service-picker");
   let pickKey = null;
   let halfMode = false;
+  const halfTurnsOn = () => state.halfTurns !== false; // per-location setting, default on
   const svcParts = raw => raw.includes(SPLIT) ? raw.split(SPLIT) : [raw, null];
   function updateHalfBtn() {
     const btn = $("#picker-half");
@@ -316,6 +319,7 @@
     const [a, b] = svcParts(raw);
     $("#picker-sub").textContent = `${person ? person.name : ''} · Turn ${turn}`;
     updateHalfBtn();
+    $("#picker-half").hidden = !halfTurnsOn();
     $("#opt-grid").innerHTML = state.services.length
       ? state.services.map(s => `<button type="button" class="opt ${(s === a || s === b) ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')
       : `<p class="picker-empty">No services yet — add them in Settings.</p>`;
@@ -329,13 +333,13 @@
     const split = raw.includes(SPLIT);
     const [a, b] = svcParts(raw);
     let val;
-    if (svc === a || svc === b) {                 // tapped an existing service → remove that half
+    if (halfMode) {                                // ♥ then a service → start a half turn (red)
+      val = svc + SPLIT;
+    } else if (isHalf(raw)) {                      // half cell → fill the empty side, same service allowed ("Pe/Pe")
+      val = a ? a + SPLIT + svc : svc + SPLIT + b;
+    } else if (svc === a || svc === b) {          // tapped an existing service → remove it
       if (!split) val = '';
       else { const kept = [a, b].map(x => x === svc ? '' : x).filter(Boolean); val = kept.length ? kept[0] + SPLIT + (kept[1] || '') : ''; }
-    } else if (halfMode) {                        // ♥ then a service → start a half turn (red)
-      val = svc + SPLIT;
-    } else if (isHalf(raw)) {                      // cell is a half → fill the empty side (green)
-      val = a ? a + SPLIT + svc : svc + SPLIT + b;
     } else {                                       // whole cell = a full turn (green)
       val = svc;
     }
@@ -421,6 +425,7 @@
   $("#add-service").addEventListener("click", addService);
   $("#new-service").addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); addService(); } });
   $("#location-name").addEventListener("change", event => { if (!ready || failed) return; state.name = event.target.value.trim(); save(); renderLocation(); });
+  $("#half-turns").addEventListener("change", event => { if (!ready || failed) return; state.halfTurns = event.target.checked; save(); });
 
   async function refreshPinSettings() {
     const stateEl = $("#pin-state"); if (!stateEl) return;
