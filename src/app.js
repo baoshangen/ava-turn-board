@@ -235,6 +235,7 @@
     settingsDay.value = settingsDay.value || state.activeDay;
     const locInput = $("#location-name"); if (locInput) locInput.value = state.name || "";
     const halfBox = $("#half-turns"); if (halfBox) halfBox.checked = halfTurnsOn();
+    const rosterCount = $("#roster-count"); if (rosterCount) rosterCount.textContent = "(" + state.roster.length + ")";
     $("#roster-list").innerHTML = state.roster.length ? state.roster.map(person => `
       <div class="list-item"><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-roster="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
     `).join("") : `<p class="empty-list">No technicians yet.</p>`;

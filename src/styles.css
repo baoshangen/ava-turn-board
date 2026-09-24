@@ -31,8 +31,16 @@
 .picker-half[hidden]{display:none}
 #add-tech-from-roster{width:100%;margin-top:8px;background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
 #roster-done{width:100%;margin-top:10px;background:var(--accent);color:#fff;border-color:var(--accent);font-weight:800;border-radius:6px;padding:14px;font-size:16px}
-.roster-dialog{width:min(460px,calc(100% - 32px));max-height:86dvh;border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;flex-direction:column;color:inherit}
+.roster-dialog{width:min(460px,calc(100% - 32px));max-height:86dvh;border:1px solid var(--line);border-radius:8px;padding:16px;color:inherit}
+.roster-dialog[open]{display:flex;flex-direction:column}
 .roster-dialog::backdrop{background:#0006}
+.roster-manage{border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
+.roster-manage>summary{cursor:pointer;padding:10px 12px;font-weight:700;list-style:none;display:flex;align-items:center;gap:6px}
+.roster-manage>summary::-webkit-details-marker{display:none}
+.roster-manage>summary::before{content:"\25B8";transition:transform .15s}
+.roster-manage[open]>summary::before{transform:rotate(90deg)}
+.roster-manage>*:not(summary){padding:0 12px 12px}
+#roster-count{color:#8b9096;font-weight:600}
 .subhead{margin:0;font-size:15px;font-weight:700}
 .day-heading{margin-top:14px}
 .toggle-row{display:flex;align-items:center;gap:10px;padding:12px 0 0;font-size:15px;font-weight:600;cursor:pointer}

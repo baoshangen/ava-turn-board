@@ -105,11 +105,14 @@
               <p>Add everyone once, then pick who works each day.</p>
             </div>
           </div>
-          <div id="roster-list" class="editable-list"></div>
-          <div class="add-row">
-            <input id="new-technician" type="text" placeholder="Technician name" autocomplete="off" />
-            <button id="add-technician" type="button">Add</button>
-          </div>
+          <details class="roster-manage">
+            <summary>All technicians <span id="roster-count"></span></summary>
+            <div id="roster-list" class="editable-list"></div>
+            <div class="add-row">
+              <input id="new-technician" type="text" placeholder="Technician name" autocomplete="off" />
+              <button id="add-technician" type="button">Add</button>
+            </div>
+          </details>
           <div class="section-heading day-heading">
             <div><h4 class="subhead">Working this day</h4></div>
             <select id="settings-day" aria-label="Day to edit"></select>
