@@ -15,7 +15,8 @@
     services: [],
     staffByDay: Object.fromEntries(DAYS.map(day => [day, []])),
     orderByDay: Object.fromEntries(DAYS.map(day => [day, []])),
-    entries: {}
+    entries: {},
+    roster: []
   });
 
   const loadState = () => {
@@ -31,7 +32,7 @@
   if (!state.orderByDay) state.orderByDay = Object.fromEntries(DAYS.map(day => [day, state.staffByDay[day].map(p => p.id)]));
   let baseState = null;
   let revision = 0, ready = false, saving = false, pending = false, failed = false;
-  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name, halfTurns: state.halfTurns });
+  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name, halfTurns: state.halfTurns, roster: state.roster });
   const status = message => { document.querySelector('#sync-status').textContent = message; };
   async function sync() {
     if (saving || failed) return;
@@ -228,11 +229,15 @@
   }
 
   function renderSettings() {
+    ensureRoster();
     const settingsDay = $("#settings-day");
     if (!settingsDay.options.length) settingsDay.innerHTML = DAYS.map(day => `<option value="${day}">${day}</option>`).join("");
     settingsDay.value = settingsDay.value || state.activeDay;
     const locInput = $("#location-name"); if (locInput) locInput.value = state.name || "";
     const halfBox = $("#half-turns"); if (halfBox) halfBox.checked = halfTurnsOn();
+    $("#roster-list").innerHTML = state.roster.length ? state.roster.map(person => `
+      <div class="list-item"><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-roster="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
+    `).join("") : `<p class="empty-list">No technicians yet.</p>`;
     const staff = state.staffByDay[settingsDay.value] || [];
     $("#technician-list").innerHTML = staff.length ? staff.map(person => `
       <div class="list-item"><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-tech="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
@@ -240,19 +245,30 @@
     $("#service-list").innerHTML = state.services.length ? state.services.map((service, index) => `
       <div class="list-item"><span>${escapeHtml(service)}</span><button class="remove-button" type="button" data-remove-service="${index}" aria-label="Remove ${escapeHtml(service)}">Remove</button></div>
     `).join("") : `<p class="empty-list">No services yet.</p>`;
+    if (!$("#roster-picker").hidden) renderRosterPicker();
   }
 
+  // The roster is the shop-wide list of everyone; each day picks who works from it.
+  function ensureRoster() {
+    if (!Array.isArray(state.roster)) state.roster = [];
+    if (!state.roster.length) {
+      const seen = new Set();
+      for (const day of DAYS) for (const p of (state.staffByDay[day] || [])) {
+        const k = (p.name || "").trim().toLowerCase();
+        if (k && !seen.has(k)) { seen.add(k); state.roster.push({ id: p.id, name: p.name }); }
+      }
+    }
+  }
   function addTechnician() {
     if (!ready || failed) return;
+    ensureRoster();
     const input = $("#new-technician");
     const name = input.value.trim();
-    const day = $("#settings-day").value;
     if (!name) return input.focus();
-    if ((state.staffByDay[day] || []).some(person => person.name.toLowerCase() === name.toLowerCase())) return showToast("That technician is already listed");
-    state.staffByDay[day] ||= [];
-    state.staffByDay[day].push({ id: uid(), name });
+    if (state.roster.some(p => p.name.toLowerCase() === name.toLowerCase())) return showToast("That technician is already listed");
+    state.roster.push({ id: uid(), name });
     input.value = "";
-    save(); renderSettings(); renderBoard(); showToast(`${name} added to ${day}`);
+    save(); renderSettings(); showToast(`${name} added`);
   }
 
   function addService() {
@@ -490,6 +506,58 @@
     } catch (e) { err.textContent = e.message; }
   });
 
+  // Roster: remove a person everywhere (all days + their turns).
+  $("#roster-list").addEventListener("click", event => {
+    const button = event.target.closest("[data-remove-roster]");
+    if (!button || !ready || failed) return;
+    const person = state.roster.find(p => p.id === button.dataset.removeRoster);
+    if (!person || !confirm(`Remove ${person.name} from the roster and every day?`)) return;
+    state.roster = state.roster.filter(p => p.id !== person.id);
+    const nm = person.name.trim().toLowerCase();
+    for (const day of DAYS) {
+      const ids = new Set((state.staffByDay[day] || []).filter(p => p.id === person.id || (p.name || "").trim().toLowerCase() === nm).map(p => p.id));
+      if (!ids.size) continue;
+      state.staffByDay[day] = state.staffByDay[day].filter(p => !ids.has(p.id));
+      state.orderByDay[day] = (state.orderByDay[day] || []).filter(id => !ids.has(id));
+      Object.keys(state.entries).forEach(key => { const [d, sid] = key.split("|"); if (d === day && ids.has(sid)) delete state.entries[key]; });
+    }
+    save(); renderSettings(); renderBoard();
+  });
+  // Per-day: pick who works today from the roster (tap toggles in/out of the day).
+  const rosterPicker = $("#roster-picker");
+  const dayHasName = (day, name) => { const nm = (name || "").trim().toLowerCase(); return (state.staffByDay[day] || []).some(p => (p.name || "").trim().toLowerCase() === nm); };
+  function renderRosterPicker() {
+    ensureRoster();
+    const day = $("#settings-day").value;
+    $("#roster-sub").textContent = day;
+    $("#roster-grid").innerHTML = state.roster.length
+      ? state.roster.map(p => `<button type="button" class="opt ${dayHasName(day, p.name) ? "cur" : ""}" data-roster-id="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`).join("")
+      : `<p class="picker-empty">Add technicians above first.</p>`;
+  }
+  function toggleRosterForDay(id) {
+    if (!ready || failed) return;
+    const day = $("#settings-day").value;
+    const person = state.roster.find(p => p.id === id);
+    if (!person) return;
+    const nm = person.name.trim().toLowerCase();
+    const ids = new Set((state.staffByDay[day] || []).filter(p => (p.name || "").trim().toLowerCase() === nm).map(p => p.id));
+    state.staffByDay[day] ||= [];
+    if (ids.size) {
+      state.staffByDay[day] = state.staffByDay[day].filter(p => !ids.has(p.id));
+      state.orderByDay[day] = (state.orderByDay[day] || []).filter(x => !ids.has(x));
+      Object.keys(state.entries).forEach(key => { const [d, sid] = key.split("|"); if (d === day && ids.has(sid)) delete state.entries[key]; });
+    } else {
+      state.staffByDay[day].push({ id: person.id, name: person.name });
+    }
+    save(); renderSettings(); renderBoard();
+  }
+  const closeRosterPicker = () => { rosterPicker.hidden = true; };
+  $("#add-tech-from-roster").addEventListener("click", () => { if (!ready || failed) return; renderRosterPicker(); rosterPicker.hidden = false; });
+  $("#roster-grid").addEventListener("click", event => { const o = event.target.closest("[data-roster-id]"); if (o) toggleRosterForDay(o.dataset.rosterId); });
+  $("#roster-done").addEventListener("click", closeRosterPicker);
+  $("#roster-x").addEventListener("click", closeRosterPicker);
+  rosterPicker.addEventListener("click", event => { if (event.target === rosterPicker) closeRosterPicker(); });
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && !rosterPicker.hidden) closeRosterPicker(); });
   $("#technician-list").addEventListener("click", event => {
     const button = event.target.closest("[data-remove-tech]");
     if (!button || !ready || failed) return;

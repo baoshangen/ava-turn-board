@@ -102,15 +102,20 @@
           <div class="section-heading">
             <div>
               <h3>Technicians</h3>
-              <p>Manage choices for each day. Select arrival order on the board.</p>
+              <p>Add everyone once, then pick who works each day.</p>
             </div>
-            <select id="settings-day" aria-label="Day to edit"></select>
           </div>
-          <div id="technician-list" class="editable-list"></div>
+          <div id="roster-list" class="editable-list"></div>
           <div class="add-row">
             <input id="new-technician" type="text" placeholder="Technician name" autocomplete="off" />
             <button id="add-technician" type="button">Add</button>
           </div>
+          <div class="section-heading day-heading">
+            <div><h4 class="subhead">Working this day</h4></div>
+            <select id="settings-day" aria-label="Day to edit"></select>
+          </div>
+          <div id="technician-list" class="editable-list"></div>
+          <button id="add-tech-from-roster" type="button">+ Add technicians to this day</button>
         </section>
 
         <section class="settings-section">
@@ -153,6 +158,17 @@
       </div>
       <div class="opt-grid" id="opt-grid"></div>
       <button class="picker-clear" id="picker-clear" type="button" hidden>✕ Remove service</button>
+    </div>
+  </div>
+
+  <div id="roster-picker" class="picker-back" hidden>
+    <div class="picker" role="dialog" aria-label="Choose technicians">
+      <div class="picker-head">
+        <div class="picker-head-main"><h3>Working this day</h3><p id="roster-sub"></p></div>
+        <button class="x" id="roster-x" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="opt-grid" id="roster-grid"></div>
+      <button class="picker-done" id="roster-done" type="button">Done</button>
     </div>
   </div>
 
