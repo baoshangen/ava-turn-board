@@ -210,7 +210,7 @@
       // Today's turn count sits where the ▾ arrow was; the empty "Choose tech" row keeps the arrow.
       const n = person ? techTurns(state.activeDay, person.id) : 0;
       const badge = person ? `<span class="turn-count ${n ? '' : 'zero'}" aria-label="${n} turns today">${n % 1 ? n.toFixed(1) : n}</span>` : '';
-      return `<tr><th scope="row"><div class="tech-cell ${person ? 'has-count' : ''}"><span class="arrival-number">${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select>${badge}</div></th>${turns.map(turn => {
+      return `<tr ${person ? `data-sort="${escapeHtml(person.id)}"` : ''}><th scope="row"><div class="tech-cell ${person ? 'has-count' : ''}"><span class="arrival-number ${person ? 'drag-handle' : ''}" ${person ? 'aria-label="Hold to reorder"' : ''}>${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select>${badge}</div></th>${turns.map(turn => {
         const key = person ? entryKey(state.activeDay, person.id, turn) : '';
         if (!person) return `<td></td>`;
         const raw = state.entries[key] || '';
@@ -237,14 +237,14 @@
     const halfBox = $("#half-turns"); if (halfBox) halfBox.checked = halfTurnsOn();
     const rosterCount = $("#roster-count"); if (rosterCount) rosterCount.textContent = "(" + state.roster.length + ")";
     $("#roster-list").innerHTML = state.roster.length ? state.roster.map(person => `
-      <div class="list-item"><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-roster="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
+      <div class="list-item" data-sort="${escapeHtml(person.id)}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-roster="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
     `).join("") : `<p class="empty-list">No technicians yet.</p>`;
     const staff = state.staffByDay[settingsDay.value] || [];
     $("#technician-list").innerHTML = staff.length ? staff.map(person => `
-      <div class="list-item"><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-tech="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
+      <div class="list-item" data-sort="${escapeHtml(person.id)}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-tech="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
     `).join("") : `<p class="empty-list">No technicians for this day.</p>`;
     $("#service-list").innerHTML = state.services.length ? state.services.map((service, index) => `
-      <div class="list-item"><span>${escapeHtml(service)}</span><button class="remove-button" type="button" data-remove-service="${index}" aria-label="Remove ${escapeHtml(service)}">Remove</button></div>
+      <div class="list-item" data-sort="${index}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(service)}</span><button class="remove-button" type="button" data-remove-service="${index}" aria-label="Remove ${escapeHtml(service)}">Remove</button></div>
     `).join("") : `<p class="empty-list">No services yet.</p>`;
     if ($("#roster-picker").open) renderRosterPicker();
   }
@@ -433,6 +433,41 @@
   $("#turn-slider").addEventListener("input", event => { state.centerTurn = Number(event.target.value); renderBoard(); });
   $("#previous-turn").addEventListener("click", () => { state.centerTurn = Math.max(2, state.centerTurn - 1); renderBoard(); });
   $("#next-turn").addEventListener("click", () => { state.centerTurn = Math.min(TURN_COUNT - 1, state.centerTurn + 1); renderBoard(); });
+
+  // Hold the grip and drag to reorder — works with mouse and touch (Pointer Events).
+  function attachSortable(container, itemSel, onCommit) {
+    if (!container) return;
+    let dragEl = null, pid = null, moved = false, startY = 0;
+    const endDrag = e => {
+      if (!dragEl || e.pointerId !== pid) return;
+      dragEl.classList.remove("dragging");
+      const done = moved; dragEl = null; pid = null;
+      if (done) onCommit([...container.querySelectorAll(itemSel)].filter(el => el.dataset.sort != null).map(el => el.dataset.sort));
+    };
+    container.addEventListener("pointerdown", e => {
+      if (!ready || failed) return;
+      const handle = e.target.closest(".drag-handle"); if (!handle || !container.contains(handle)) return;
+      const item = handle.closest(itemSel); if (!item || item.dataset.sort == null) return;
+      dragEl = item; pid = e.pointerId; moved = false; startY = e.clientY;
+      handle.setPointerCapture(pid); e.preventDefault();
+    });
+    container.addEventListener("pointermove", e => {
+      if (!dragEl || e.pointerId !== pid) return;
+      if (!moved && Math.abs(e.clientY - startY) < 6) return;
+      moved = true; dragEl.classList.add("dragging");
+      const others = [...container.querySelectorAll(itemSel)].filter(el => el !== dragEl);
+      const emptyRow = others.find(el => el.dataset.sort == null);
+      let after = null;
+      for (const el of others) { if (el.dataset.sort == null) continue; const r = el.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { after = el; break; } }
+      container.insertBefore(dragEl, after || emptyRow || null);
+    });
+    container.addEventListener("pointerup", endDrag);
+    container.addEventListener("pointercancel", endDrag);
+  }
+  attachSortable($("#turn-body"), "tr", ids => { state.orderByDay[state.activeDay] = ids; save(); renderBoard(); });
+  attachSortable($("#roster-list"), ".list-item", ids => { state.roster = ids.map(id => state.roster.find(p => p.id === id)).filter(Boolean); save(); renderSettings(); });
+  attachSortable($("#technician-list"), ".list-item", ids => { const d = $("#settings-day").value; state.staffByDay[d] = ids.map(id => (state.staffByDay[d] || []).find(p => p.id === id)).filter(Boolean); save(); renderSettings(); renderBoard(); });
+  attachSortable($("#service-list"), ".list-item", ids => { const old = state.services.slice(); state.services = ids.map(i => old[+i]).filter(v => v != null); save(); renderSettings(); });
 
   $("#open-settings").addEventListener("click", () => {
     renderSettings();

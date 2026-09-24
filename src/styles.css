@@ -41,6 +41,13 @@
 .roster-manage[open]>summary::before{transform:rotate(90deg)}
 .roster-manage>*:not(summary){padding:0 12px 12px}
 #roster-count{color:#8b9096;font-weight:600}
+.drag-handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;flex:none}
+.drag-handle:active{cursor:grabbing}
+.editable-list .list-item{justify-content:flex-start}
+.editable-list .list-item>.drag-handle{color:#9aa0a6;font-size:15px;padding:0 2px}
+.editable-list .list-item>span:not(.drag-handle){flex:1;min-width:0}
+.dragging{opacity:.55}
+.editable-list .dragging{background:var(--green)}
 .subhead{margin:0;font-size:15px;font-weight:700}
 .day-heading{margin-top:14px}
 .toggle-row{display:flex;align-items:center;gap:10px;padding:12px 0 0;font-size:15px;font-weight:600;cursor:pointer}
