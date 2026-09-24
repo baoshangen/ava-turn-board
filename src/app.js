@@ -434,40 +434,33 @@
   $("#previous-turn").addEventListener("click", () => { state.centerTurn = Math.max(2, state.centerTurn - 1); renderBoard(); });
   $("#next-turn").addEventListener("click", () => { state.centerTurn = Math.min(TURN_COUNT - 1, state.centerTurn + 1); renderBoard(); });
 
-  // Hold the grip and drag to reorder — works with mouse and touch (Pointer Events).
-  function attachSortable(container, itemSel, onCommit) {
-    if (!container) return;
-    let dragEl = null, pid = null, moved = false, startY = 0;
-    const endDrag = e => {
-      if (!dragEl || e.pointerId !== pid) return;
-      dragEl.classList.remove("dragging");
-      const done = moved; dragEl = null; pid = null;
-      if (done) onCommit([...container.querySelectorAll(itemSel)].filter(el => el.dataset.sort != null).map(el => el.dataset.sort));
-    };
-    container.addEventListener("pointerdown", e => {
-      if (!ready || failed) return;
-      const handle = e.target.closest(".drag-handle"); if (!handle || !container.contains(handle)) return;
-      const item = handle.closest(itemSel); if (!item || item.dataset.sort == null) return;
-      dragEl = item; pid = e.pointerId; moved = false; startY = e.clientY;
-      handle.setPointerCapture(pid); e.preventDefault();
+  // Hold the grip and drag to reorder — SortableJS gives a smooth pointer-following
+  // ghost + sibling slide animation, and works with mouse and touch alike.
+  function makeSortable(container, draggable, onCommit) {
+    if (!container || !window.Sortable) return;
+    window.Sortable.create(container, {
+      handle: ".drag-handle",
+      draggable,
+      animation: 170,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+      forceFallback: true,
+      fallbackTolerance: 4,
+      fallbackClass: "drag-floating",
+      ghostClass: "drag-ghost",
+      chosenClass: "drag-chosen",
+      delayOnTouchOnly: true,
+      delay: 90,
+      touchStartThreshold: 5,
+      onEnd(evt) {
+        if (!ready || failed || evt.oldIndex === evt.newIndex) return;
+        onCommit([...container.querySelectorAll("[data-sort]")].map(el => el.dataset.sort));
+      },
     });
-    container.addEventListener("pointermove", e => {
-      if (!dragEl || e.pointerId !== pid) return;
-      if (!moved && Math.abs(e.clientY - startY) < 6) return;
-      moved = true; dragEl.classList.add("dragging");
-      const others = [...container.querySelectorAll(itemSel)].filter(el => el !== dragEl);
-      const emptyRow = others.find(el => el.dataset.sort == null);
-      let after = null;
-      for (const el of others) { if (el.dataset.sort == null) continue; const r = el.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { after = el; break; } }
-      container.insertBefore(dragEl, after || emptyRow || null);
-    });
-    container.addEventListener("pointerup", endDrag);
-    container.addEventListener("pointercancel", endDrag);
   }
-  attachSortable($("#turn-body"), "tr", ids => { state.orderByDay[state.activeDay] = ids; save(); renderBoard(); });
-  attachSortable($("#roster-list"), ".list-item", ids => { state.roster = ids.map(id => state.roster.find(p => p.id === id)).filter(Boolean); save(); renderSettings(); });
-  attachSortable($("#technician-list"), ".list-item", ids => { const d = $("#settings-day").value; state.staffByDay[d] = ids.map(id => (state.staffByDay[d] || []).find(p => p.id === id)).filter(Boolean); save(); renderSettings(); renderBoard(); });
-  attachSortable($("#service-list"), ".list-item", ids => { const old = state.services.slice(); state.services = ids.map(i => old[+i]).filter(v => v != null); save(); renderSettings(); });
+  makeSortable($("#turn-body"), "tr[data-sort]", ids => { state.orderByDay[state.activeDay] = ids; save(); renderBoard(); });
+  makeSortable($("#roster-list"), ".list-item", ids => { state.roster = ids.map(id => state.roster.find(p => p.id === id)).filter(Boolean); save(); renderSettings(); });
+  makeSortable($("#technician-list"), ".list-item", ids => { const d = $("#settings-day").value; state.staffByDay[d] = ids.map(id => (state.staffByDay[d] || []).find(p => p.id === id)).filter(Boolean); save(); renderSettings(); renderBoard(); });
+  makeSortable($("#service-list"), ".list-item", ids => { const old = state.services.slice(); state.services = ids.map(i => old[+i]).filter(v => v != null); save(); renderSettings(); });
 
   $("#open-settings").addEventListener("click", () => {
     renderSettings();
