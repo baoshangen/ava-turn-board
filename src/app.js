@@ -551,8 +551,27 @@
     }
     save(); renderSettings(); renderBoard();
   }
-  const closeRosterPicker = () => { if (rosterPicker.open) rosterPicker.close(); };
-  $("#add-tech-from-roster").addEventListener("click", () => { if (!ready || failed) return; renderRosterPicker(); rosterPicker.showModal(); });
+  let rosterDay = null;
+  const closeRosterPicker = () => {
+    if (rosterPicker.open) rosterPicker.close();
+    // Reopen Settings where we left off so the shop can keep editing the day.
+    if (!$("#settings-dialog").open) {
+      renderSettings();
+      if (rosterDay) $("#settings-day").value = rosterDay;
+      renderSettings();
+      refreshPinSettings();
+      $("#settings-dialog").showModal();
+    }
+    rosterDay = null;
+  };
+  $("#add-tech-from-roster").addEventListener("click", () => {
+    if (!ready || failed) return;
+    rosterDay = $("#settings-day").value;
+    // Close Settings first so the picker isn't covered by it, then show the picker on its own.
+    if ($("#settings-dialog").open) $("#settings-dialog").close();
+    renderRosterPicker();
+    rosterPicker.showModal();
+  });
   $("#roster-grid").addEventListener("click", event => { const o = event.target.closest("[data-roster-id]"); if (o) toggleRosterForDay(o.dataset.rosterId); });
   $("#roster-done").addEventListener("click", closeRosterPicker);
   $("#roster-x").addEventListener("click", closeRosterPicker);
