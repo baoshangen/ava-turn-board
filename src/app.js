@@ -245,7 +245,7 @@
     $("#service-list").innerHTML = state.services.length ? state.services.map((service, index) => `
       <div class="list-item"><span>${escapeHtml(service)}</span><button class="remove-button" type="button" data-remove-service="${index}" aria-label="Remove ${escapeHtml(service)}">Remove</button></div>
     `).join("") : `<p class="empty-list">No services yet.</p>`;
-    if (!$("#roster-picker").hidden) renderRosterPicker();
+    if ($("#roster-picker").open) renderRosterPicker();
   }
 
   // The roster is the shop-wide list of everyone; each day picks who works from it.
@@ -551,13 +551,12 @@
     }
     save(); renderSettings(); renderBoard();
   }
-  const closeRosterPicker = () => { rosterPicker.hidden = true; };
-  $("#add-tech-from-roster").addEventListener("click", () => { if (!ready || failed) return; renderRosterPicker(); rosterPicker.hidden = false; });
+  const closeRosterPicker = () => { if (rosterPicker.open) rosterPicker.close(); };
+  $("#add-tech-from-roster").addEventListener("click", () => { if (!ready || failed) return; renderRosterPicker(); rosterPicker.showModal(); });
   $("#roster-grid").addEventListener("click", event => { const o = event.target.closest("[data-roster-id]"); if (o) toggleRosterForDay(o.dataset.rosterId); });
   $("#roster-done").addEventListener("click", closeRosterPicker);
   $("#roster-x").addEventListener("click", closeRosterPicker);
   rosterPicker.addEventListener("click", event => { if (event.target === rosterPicker) closeRosterPicker(); });
-  document.addEventListener("keydown", event => { if (event.key === "Escape" && !rosterPicker.hidden) closeRosterPicker(); });
   $("#technician-list").addEventListener("click", event => {
     const button = event.target.closest("[data-remove-tech]");
     if (!button || !ready || failed) return;

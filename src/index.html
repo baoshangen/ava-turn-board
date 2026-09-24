@@ -161,16 +161,14 @@
     </div>
   </div>
 
-  <div id="roster-picker" class="picker-back" hidden>
-    <div class="picker" role="dialog" aria-label="Choose technicians">
-      <div class="picker-head">
-        <div class="picker-head-main"><h3>Working this day</h3><p id="roster-sub"></p></div>
-        <button class="x" id="roster-x" type="button" aria-label="Close">✕</button>
-      </div>
-      <div class="opt-grid" id="roster-grid"></div>
-      <button class="picker-done" id="roster-done" type="button">Done</button>
+  <dialog id="roster-picker" class="roster-dialog" aria-label="Choose technicians">
+    <div class="picker-head">
+      <div class="picker-head-main"><h3>Working this day</h3><p id="roster-sub"></p></div>
+      <button class="x" id="roster-x" type="button" aria-label="Close">✕</button>
     </div>
-  </div>
+    <div class="opt-grid" id="roster-grid"></div>
+    <button class="picker-done" id="roster-done" type="button">Done</button>
+  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="./merge.js"></script>
