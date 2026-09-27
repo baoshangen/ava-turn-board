@@ -193,7 +193,7 @@
     $("#turn-slider").value = String(state.centerTurn);
     $("#previous-turn").disabled = state.centerTurn <= 2;
     $("#next-turn").disabled = state.centerTurn >= TURN_COUNT - 1;
-    $("#turn-head").innerHTML = `<tr><th scope="col">Tech · Arrival</th>${turns.map(turn => `<th scope="col">Turn ${turn}</th>`).join("")}</tr>`;
+    $("#turn-head").innerHTML = `<tr><th scope="col">Tech · Arrival</th>${turns.map(turn => `<th scope="col" class="${turn % 2 === 0 ? 'alt' : ''}">Turn ${turn}</th>`).join("")}</tr>`;
 
     const staffIds = staff.map(p => p.id);
     // Progressive rows: keep only technicians already placed (compacted), then show
@@ -212,7 +212,8 @@
       const badge = person ? `<span class="turn-count ${n ? '' : 'zero'}" aria-label="${n} turns today">${n % 1 ? n.toFixed(1) : n}</span>` : '';
       return `<tr ${person ? `data-sort="${escapeHtml(person.id)}"` : ''}><th scope="row"><div class="tech-cell ${person ? 'has-count' : ''}"><span class="arrival-number ${person ? 'drag-handle' : ''}" ${person ? 'aria-label="Hold to reorder"' : ''}>${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select>${badge}</div></th>${turns.map(turn => {
         const key = person ? entryKey(state.activeDay, person.id, turn) : '';
-        if (!person) return `<td></td>`;
+        const alt = turn % 2 === 0 ? 'alt' : '';
+        if (!person) return `<td class="${alt}"></td>`;
         const raw = state.entries[key] || '';
         const dis = ready && !failed ? '' : 'disabled';
         const label = escapeHtml(person.name || '');
@@ -223,7 +224,7 @@
           ? raw.split(SPLIT).map(x => x ? `<span class="cell-heart" aria-hidden="true">\u2665</span>${escapeHtml(x)}` : '').join('/')
           : escapeHtml(raw);
         const inner = raw ? `<span class="txt">${body}</span>` : '<span class="txt add">＋</span>';
-        return `<td><div class="cell-wrap"><button type="button" class="pick ${cls}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn} — choose service">${inner}</button></div></td>`;
+        return `<td class="${alt}"><div class="cell-wrap"><button type="button" class="pick ${cls}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn} — choose service">${inner}</button></div></td>`;
       }).join('')}</tr>`;
     }).join('');
   }
