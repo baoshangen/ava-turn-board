@@ -88,6 +88,9 @@
   const entryKey = (day, staffId, turn) => `${day}|${staffId}|${turn}`;
   // Cell states: "Pe" = single (full/green), "Pe␟" = one half (red),
   // "Pe␟Nc" = both halves (full/green). A half turn is NOT a complete turn.
+  const HMARK = "\u0001"; // invisible flag prefixed on a half whose ♥ was pressed
+  const hasH = s => typeof s === "string" && s.startsWith(HMARK);
+  const stripH = s => (hasH(s) ? s.slice(1) : (s || ""));
   const hasService = v => typeof v === "string" && v.split(SPLIT).some(Boolean);
   const isComplete = v => { if (!v) return false; if (!v.includes(SPLIT)) return true; const [a, b] = v.split(SPLIT); return !!a && !!b; };
   const isHalf = v => { if (typeof v !== "string" || !v.includes(SPLIT)) return false; const [a, b] = v.split(SPLIT); return (!!a) !== (!!b); };
@@ -221,8 +224,8 @@
         const split = raw.includes(SPLIT);
         const cls = isComplete(raw) ? 'full' : (isHalf(raw) ? 'half' : '');
         const body = split
-          ? raw.split(SPLIT).map(x => x ? `<span class="cell-heart" aria-hidden="true">\u2665</span>${escapeHtml(x)}` : '').join('/')
-          : escapeHtml(raw);
+          ? raw.split(SPLIT).map(x => x ? `${hasH(x) ? '<span class="cell-heart" aria-hidden="true">\u2665</span>' : ''}${escapeHtml(stripH(x))}` : '').join('/')
+          : escapeHtml(stripH(raw));
         const inner = raw ? `<span class="txt">${body}</span>` : '<span class="txt add">＋</span>';
         return `<td class="${alt}"><div class="cell-wrap"><button type="button" class="pick ${cls}" data-key="${escapeHtml(key)}" ${dis} aria-label="${label}, turn ${turn} — choose service">${inner}</button></div></td>`;
       }).join('')}</tr>`;
@@ -342,7 +345,7 @@
     updateHalfBtn();
     $("#picker-half").hidden = !halfTurnsOn();
     $("#opt-grid").innerHTML = state.services.length
-      ? state.services.map(s => `<button type="button" class="opt ${(s === a || s === b) ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')
+      ? state.services.map(s => `<button type="button" class="opt ${(s === stripH(a) || s === stripH(b)) ? 'cur' : ''}" data-svc="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')
       : `<p class="picker-empty">No services yet — add them in Settings.</p>`;
     $("#picker-clear").hidden = !raw;
     servicePicker.hidden = false;
@@ -354,15 +357,15 @@
     const split = raw.includes(SPLIT);
     const [a, b] = svcParts(raw);
     let val;
-    if (halfMode) {                                // ♥ = one half turn → fill the next empty half (♥ twice = "Pe/Pe")
-      if (!split && !raw) { val = svc + SPLIT; }
-      else { let [x, y] = split ? raw.split(SPLIT) : [raw, '']; if (!x) x = svc; else y = svc; val = x + SPLIT + y; }
-    } else if (isHalf(raw)) {                      // half cell → fill the empty side, same service allowed ("Pe/Pe")
+    if (halfMode) {                                // ♥ pressed → this half gets a heart; fill the next empty half
+      if (!split && !raw) { val = HMARK + svc + SPLIT; }
+      else { let [x, y] = split ? raw.split(SPLIT) : [raw, '']; if (!x) x = HMARK + svc; else y = HMARK + svc; val = x + SPLIT + y; }
+    } else if (isHalf(raw)) {                      // half cell, no ♥ → fill the empty side as a PLAIN service (no heart)
       val = a ? a + SPLIT + svc : svc + SPLIT + b;
-    } else if (svc === a || svc === b) {          // tapped an existing service → remove it
+    } else if (svc === stripH(a) || svc === stripH(b)) { // tapped an existing service → remove it (keep the other half's heart)
       if (!split) val = '';
-      else { const kept = [a, b].map(x => x === svc ? '' : x).filter(Boolean); val = kept.length ? kept[0] + SPLIT + (kept[1] || '') : ''; }
-    } else {                                       // whole cell = a full turn (green)
+      else { const kept = [a, b].map(x => stripH(x) === svc ? '' : x).filter(Boolean); val = kept.length ? kept[0] + SPLIT + (kept[1] || '') : ''; }
+    } else {                                       // whole cell = a full turn (green), no heart
       val = svc;
     }
     if (val) state.entries[pickKey] = val; else delete state.entries[pickKey];
