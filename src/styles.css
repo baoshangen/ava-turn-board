@@ -51,10 +51,30 @@
 .sug-item.top .sug-name{font-weight:800}
 .sug-tag{display:inline-block;margin-left:6px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;vertical-align:middle}
 .sug-turns{flex:none;color:#5f6368;font-size:13px;font-weight:700}
+.sug-hint{margin:0 0 10px;color:#5f6368;font-size:14px}
+.sug-svcs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sug-svc{padding:14px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-weight:700;font-size:14px;cursor:pointer}
+.sug-svc:active{background:var(--green)}
+.sug-left{min-width:0;display:flex;flex-direction:column}
+.sug-sub{margin-top:2px}
+.stars{color:#e0a400;font-size:13px;letter-spacing:1px}
+.back{margin-top:6px;background:none;border:0;color:var(--accent-deep);font-weight:700;cursor:pointer;padding:8px 0;font-size:15px}
 .group-names{margin:10px 0 4px}
 .group-hint{margin:2px 0 8px;color:#8b9096;font-size:13px}
 .group-names .add-row{margin-bottom:6px}
-.roster-group{margin-left:6px;flex:none;font-size:13px;max-width:120px}
+.svc-group{margin-left:6px;flex:none;font-size:13px;max-width:120px}
+.skills-manage{border:1px solid var(--line);border-radius:6px;margin:8px 0}
+.skills-manage>summary{cursor:pointer;padding:10px 12px;font-weight:700;list-style:none}
+.skills-manage>summary::-webkit-details-marker{display:none}
+.skills-manage>summary::before{content:"\25B8";margin-right:6px;display:inline-block;transition:transform .15s}
+.skills-manage[open]>summary::before{transform:rotate(90deg)}
+.skills-manage>*:not(summary){padding:0 12px 12px}
+.skills-wrap{overflow-x:auto}
+#skills-table{border-collapse:collapse;font-size:13px}
+#skills-table th,#skills-table td{border:1px solid var(--line);padding:5px 7px;text-align:center;white-space:nowrap}
+#skills-table th.sk-name,#skills-table td.sk-name{text-align:left;position:sticky;left:0;background:#fff}
+#skills-table th.sk-svc{font-weight:650}
+.sk-can{width:18px;height:18px;accent-color:var(--accent)}
 .turn-table td.alt{background:#edeff2}
 .turn-table thead th.alt{background:#e6e8ec}
 .drag-handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;flex:none}
