@@ -107,9 +107,9 @@
   const rosterOf = id => (state.roster || []).find(r => r.id === id);
   const techCan = (id, svc) => { const p = rosterOf(id); return !!(p && Array.isArray(p.can) && p.can.includes(svc)); };
   const techSkill = id => { const p = rosterOf(id); return (p && (p.skill === 1 || p.skill === 2 || p.skill === 3)) ? p.skill : 2; };
-  const suggestForService = svc => (state.orderByDay[state.activeDay] || [])
-    .filter(id => id && techCan(id, svc))
-    .map(id => { const p = (state.staffByDay[state.activeDay] || []).find(s => s.id === id) || rosterOf(id); return { id, name: p ? p.name : "", turns: techTurns(state.activeDay, id), skill: techSkill(id) }; })
+  const suggestForService = svc => (state.staffByDay[state.activeDay] || [])
+    .filter(p => p && p.id && techCan(p.id, svc))
+    .map(p => ({ id: p.id, name: p.name || "", turns: techTurns(state.activeDay, p.id), skill: techSkill(p.id) }))
     .sort((a, b) => a.turns - b.turns || b.skill - a.skill);
   // A turn column is "done" when every assigned technician has a COMPLETE (green) turn.
   const turnComplete = (day, turn) => {
@@ -461,7 +461,7 @@
     const list = suggestForService(svc);
     const body = list.length
       ? list.map((t, idx) => `<div class="sug-item ${idx === 0 ? 'top' : ''}"><span class="sug-left"><span class="sug-name">${escapeHtml(t.name)}${idx === 0 ? ' <span class="sug-tag">Suggested</span>' : ''}</span><span class="sug-sub"><span class="stars">${stars(t.skill)}</span></span></span><span class="sug-turns">${t.turns % 1 ? t.turns.toFixed(1) : t.turns} turns</span></div>`).join('')
-      : `<p class="picker-empty">No technician can do "${escapeHtml(svc)}" today.</p>`;
+      : `<p class="picker-empty">No technician today can do "${escapeHtml(svc)}" — tick their services in Settings › Suggest skills.</p>`;
     $("#suggest-list").innerHTML = body + `<button type="button" class="back" id="suggest-back">‹ Back</button>`;
   }
   const closeSuggest = () => { if (suggestPop) suggestPop.hidden = true; };
