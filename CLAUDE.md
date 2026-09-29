@@ -5,6 +5,12 @@ technician takes each turn and what service they do. English UI, teal accent
 (`--accent:#0d9488`). Runs on Cloudflare Workers + D1. Used on phones/tablets by
 receptionists, so touch-friendliness and simplicity matter more than features.
 
+## Workflow rule (owner's standing request)
+
+For every change: **Plan → build a MOCKUP/sample and send it to the owner to
+review → only DEPLOY after they approve.** Do not push changes to the live app
+before the owner has seen and approved a sample of the change.
+
 ## Two repositories — keep `src/` byte-identical
 
 The same app lives in two GitHub repos. **Every change must be applied to both,
