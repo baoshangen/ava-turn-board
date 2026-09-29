@@ -41,6 +41,20 @@
 .roster-manage[open]>summary::before{transform:rotate(90deg)}
 .roster-manage>*:not(summary){padding:0 12px 12px}
 #roster-count{color:#8b9096;font-weight:600}
+.suggest-row{display:flex;gap:8px;margin:0 0 12px}
+.suggest-btn{flex:1;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:12px 10px;font-weight:700;font-size:15px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.suggest-btn:active{background:var(--accent-deep)}
+#suggest-list{overflow-y:auto}
+.sug-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+.sug-item.top{background:var(--green);border-color:var(--accent)}
+.sug-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.sug-item.top .sug-name{font-weight:800}
+.sug-tag{display:inline-block;margin-left:6px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;vertical-align:middle}
+.sug-turns{flex:none;color:#5f6368;font-size:13px;font-weight:700}
+.group-names{margin:10px 0 4px}
+.group-hint{margin:2px 0 8px;color:#8b9096;font-size:13px}
+.group-names .add-row{margin-bottom:6px}
+.roster-group{margin-left:6px;flex:none;font-size:13px;max-width:120px}
 .turn-table td.alt{background:#edeff2}
 .turn-table thead th.alt{background:#e6e8ec}
 .drag-handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;flex:none}

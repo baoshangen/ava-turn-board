@@ -51,6 +51,11 @@
         <div class="board-actions"><div class="range-badge" id="range-badge">Turns 1–3 of 15</div><button id="focus-toggle" type="button" aria-label="Full screen">⛶</button><button id="toggle-turn-view" type="button" aria-pressed="false">Expand</button><button id="reset-day" type="button" disabled>Reset this day</button></div>
       </div>
 
+      <div class="suggest-row">
+        <button class="suggest-btn" id="suggest-0" type="button">Suggest 1</button>
+        <button class="suggest-btn" id="suggest-1" type="button">Suggest 2</button>
+      </div>
+
       <div class="table-wrap">
         <table class="turn-table">
           <thead id="turn-head"></thead>
@@ -96,6 +101,13 @@
         <input id="location-name" type="text" maxlength="40" placeholder="e.g. AVA Downtown" autocomplete="off" />
       </div>
       <label class="toggle-row" for="half-turns"><input id="half-turns" type="checkbox" aria-label="Half turns" /><span class="toggle-heart" aria-hidden="true">♥</span></label>
+
+      <div class="group-names">
+        <h4 class="subhead">Suggestion groups</h4>
+        <p class="group-hint">Name the two technician groups; the board's Suggest buttons use these.</p>
+        <div class="add-row"><input id="group-0-name" type="text" maxlength="24" placeholder="Group 1 name (e.g. Pe/Ma)" autocomplete="off" /></div>
+        <div class="add-row"><input id="group-1-name" type="text" maxlength="24" placeholder="Group 2 name (e.g. Bột)" autocomplete="off" /></div>
+      </div>
 
       <div class="settings-grid">
         <section class="settings-section">
@@ -161,6 +173,16 @@
       </div>
       <div class="opt-grid" id="opt-grid"></div>
       <button class="picker-clear" id="picker-clear" type="button" hidden>✕ Remove service</button>
+    </div>
+  </div>
+
+  <div id="suggest-pop" class="picker-back" hidden>
+    <div class="picker" role="dialog" aria-label="Suggested technician">
+      <div class="picker-head">
+        <div class="picker-head-main"><h3 id="suggest-title"></h3></div>
+        <button class="x" id="suggest-x" type="button" aria-label="Close">✕</button>
+      </div>
+      <div id="suggest-list"></div>
     </div>
   </div>
 

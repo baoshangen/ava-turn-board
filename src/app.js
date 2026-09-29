@@ -16,7 +16,8 @@
     staffByDay: Object.fromEntries(DAYS.map(day => [day, []])),
     orderByDay: Object.fromEntries(DAYS.map(day => [day, []])),
     entries: {},
-    roster: []
+    roster: [],
+    groupNames: ["", ""]
   });
 
   const loadState = () => {
@@ -32,7 +33,7 @@
   if (!state.orderByDay) state.orderByDay = Object.fromEntries(DAYS.map(day => [day, state.staffByDay[day].map(p => p.id)]));
   let baseState = null;
   let revision = 0, ready = false, saving = false, pending = false, failed = false;
-  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name, halfTurns: state.halfTurns, roster: state.roster });
+  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name, halfTurns: state.halfTurns, roster: state.roster, groupNames: state.groupNames });
   const status = message => { document.querySelector('#sync-status').textContent = message; };
   async function sync() {
     if (saving || failed) return;
@@ -97,6 +98,14 @@
   // Turn count: a full cell (single or both halves) = 1, one half = 0.5.
   const turnValue = v => isComplete(v) ? 1 : (isHalf(v) ? 0.5 : 0);
   const techTurns = (day, id) => { let n = 0; for (let t = 1; t <= TURN_COUNT; t++) n += turnValue(state.entries[entryKey(day, id, t)] || ''); return n; };
+  // Suggestion groups: each technician can belong to group 0 or 1; "suggest" picks the
+  // fewest-turns technician of that group working today so customers spread evenly.
+  const groupLabel = i => ((state.groupNames || [])[i] || `Suggest ${i + 1}`);
+  const techGroup = id => { const p = (state.roster || []).find(r => r.id === id); return p && (p.group === 0 || p.group === 1) ? p.group : null; };
+  const suggestList = i => (state.orderByDay[state.activeDay] || [])
+    .filter(id => id && techGroup(id) === i)
+    .map(id => { const p = (state.staffByDay[state.activeDay] || []).find(s => s.id === id) || (state.roster || []).find(r => r.id === id); return { id, name: p ? p.name : "", turns: techTurns(state.activeDay, id) }; })
+    .sort((a, b) => a.turns - b.turns);
   // A turn column is "done" when every assigned technician has a COMPLETE (green) turn.
   const turnComplete = (day, turn) => {
     const assigned = (state.orderByDay[day] || []).filter(id => id);
@@ -177,6 +186,9 @@
   const TECH_COL = 118; // keep in sync with .turn-table thead th:first-child width in styles.css
   function renderBoard() {
     const turns = visibleTurns();
+    const sb0 = $('#suggest-0'), sb1 = $('#suggest-1');
+    if (sb0) sb0.textContent = groupLabel(0);
+    if (sb1) sb1.textContent = groupLabel(1);
     $('.app-shell').classList.toggle('expanded-turns', expandedTurns);
     $('#toggle-turn-view').textContent = expandedTurns ? 'Collapse' : 'Expand';
     $('#toggle-turn-view').setAttribute('aria-pressed', String(expandedTurns));
@@ -240,8 +252,16 @@
     const locInput = $("#location-name"); if (locInput) locInput.value = state.name || "";
     const halfBox = $("#half-turns"); if (halfBox) halfBox.checked = halfTurnsOn();
     const rosterCount = $("#roster-count"); if (rosterCount) rosterCount.textContent = "(" + state.roster.length + ")";
+    const g0 = $("#group-0-name"), g1 = $("#group-1-name");
+    if (g0) g0.value = (state.groupNames || [])[0] || "";
+    if (g1) g1.value = (state.groupNames || [])[1] || "";
+    const groupSelect = person => {
+      const g = (person.group === 0 || person.group === 1) ? person.group : "";
+      const opt = (v, label) => `<option value="${v}" ${String(g) === String(v) ? "selected" : ""}>${escapeHtml(label)}</option>`;
+      return `<select class="roster-group" data-roster-group="${escapeHtml(person.id)}" aria-label="Group for ${escapeHtml(person.name)}">${opt("", "—")}${opt("0", groupLabel(0))}${opt("1", groupLabel(1))}</select>`;
+    };
     $("#roster-list").innerHTML = state.roster.length ? state.roster.map(person => `
-      <div class="list-item" data-sort="${escapeHtml(person.id)}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-roster="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
+      <div class="list-item" data-sort="${escapeHtml(person.id)}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(person.name)}</span>${groupSelect(person)}<button class="remove-button" type="button" data-remove-roster="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
     `).join("") : `<p class="empty-list">No technicians yet.</p>`;
     const staff = state.staffByDay[settingsDay.value] || [];
     $("#technician-list").innerHTML = staff.length ? staff.map(person => `
@@ -399,6 +419,24 @@
   servicePicker.addEventListener("click", event => { if (event.target === servicePicker) closePicker(); });
   document.addEventListener("keydown", event => { if (event.key === "Escape" && !servicePicker.hidden) closePicker(); });
 
+  // Suggestion pop-up: show the group's technicians ranked by fewest turns today (display only).
+  const suggestPop = $("#suggest-pop");
+  function openSuggest(i) {
+    if (!suggestPop) return;
+    $("#suggest-title").textContent = groupLabel(i);
+    const list = suggestList(i);
+    $("#suggest-list").innerHTML = list.length
+      ? list.map((t, idx) => `<div class="sug-item ${idx === 0 ? 'top' : ''}"><span class="sug-name">${escapeHtml(t.name)}${idx === 0 ? ' <span class="sug-tag">Suggested</span>' : ''}</span><span class="sug-turns">${t.turns % 1 ? t.turns.toFixed(1) : t.turns} turns</span></div>`).join('')
+      : `<p class="picker-empty">No technicians in this group working today.</p>`;
+    suggestPop.hidden = false;
+  }
+  const closeSuggest = () => { if (suggestPop) suggestPop.hidden = true; };
+  $("#suggest-0").addEventListener("click", () => openSuggest(0));
+  $("#suggest-1").addEventListener("click", () => openSuggest(1));
+  $("#suggest-x").addEventListener("click", closeSuggest);
+  suggestPop.addEventListener("click", event => { if (event.target === suggestPop) closeSuggest(); });
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && suggestPop && !suggestPop.hidden) closeSuggest(); });
+
   $('#toggle-turn-view').addEventListener('click', () => {
     expandedTurns = !expandedTurns;
     $('.table-wrap').scrollLeft = 0;
@@ -480,6 +518,15 @@
   $("#new-service").addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); addService(); } });
   $("#location-name").addEventListener("change", event => { if (!ready || failed) return; state.name = event.target.value.trim(); save(); renderLocation(); });
   $("#half-turns").addEventListener("change", event => { if (!ready || failed) return; state.halfTurns = event.target.checked; save(); });
+  const onGroupName = i => event => { if (!ready || failed) return; state.groupNames = state.groupNames || ["", ""]; state.groupNames[i] = event.target.value.trim(); save(); renderBoard(); renderSettings(); };
+  $("#group-0-name").addEventListener("change", onGroupName(0));
+  $("#group-1-name").addEventListener("change", onGroupName(1));
+  $("#roster-list").addEventListener("change", event => {
+    const sel = event.target.closest(".roster-group"); if (!sel || !ready || failed) return;
+    const person = state.roster.find(r => r.id === sel.dataset.rosterGroup); if (!person) return;
+    person.group = sel.value === "" ? null : Number(sel.value);
+    save();
+  });
 
   async function refreshPinSettings() {
     const stateEl = $("#pin-state"); if (!stateEl) return;
