@@ -105,11 +105,15 @@
   const svcGroup = svc => { const g = (state.serviceGroups || {})[svc]; return (g === 0 || g === 1) ? g : null; };
   const servicesOfGroup = i => (state.services || []).filter(s => svcGroup(s) === i);
   const rosterOf = id => (state.roster || []).find(r => r.id === id);
+  const rosterByName = name => { const nm = (name || "").trim().toLowerCase(); return nm ? (state.roster || []).find(r => (r.name || "").trim().toLowerCase() === nm) : undefined; };
+  // Same person can have different ids across days; match capability/skill by id OR name.
+  const rosterFor = (id, name) => rosterOf(id) || rosterByName(name);
   const techCan = (id, svc) => { const p = rosterOf(id); if (!p || !Array.isArray(p.can) || p.can.length === 0) return true; return p.can.includes(svc); };
   const techSkill = id => { const p = rosterOf(id); return (p && (p.skill === 1 || p.skill === 2 || p.skill === 3)) ? p.skill : 2; };
   const suggestForService = svc => (state.staffByDay[state.activeDay] || [])
-    .filter(p => p && p.id && techCan(p.id, svc))
-    .map(p => ({ id: p.id, name: p.name || "", turns: techTurns(state.activeDay, p.id), skill: techSkill(p.id) }))
+    .filter(p => p && p.id)
+    .map(p => { const r = rosterFor(p.id, p.name); const can = r && Array.isArray(r.can) ? r.can : null; const skill = (r && (r.skill === 1 || r.skill === 2 || r.skill === 3)) ? r.skill : 2; return { id: p.id, name: p.name || "", turns: techTurns(state.activeDay, p.id), skill, canDo: (!can || can.length === 0) ? true : can.includes(svc) }; })
+    .filter(t => t.canDo)
     .sort((a, b) => a.turns - b.turns || b.skill - a.skill);
   // A turn column is "done" when every assigned technician has a COMPLETE (green) turn.
   const turnComplete = (day, turn) => {
