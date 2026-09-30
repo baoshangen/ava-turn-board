@@ -25,9 +25,12 @@
           <h1>Turn Board</h1>
         </div>
       </div>
-      <button class="settings-button" id="open-settings" type="button" aria-label="Open settings">
-        <span aria-hidden="true">⚙</span> Settings
-      </button>
+      <div class="top-actions">
+        <button class="settings-button" id="open-settings" type="button" aria-label="Open settings">
+          <span aria-hidden="true">⚙</span> Settings
+        </button>
+        <button id="focus-toggle" type="button" aria-label="Full screen">⛶</button>
+      </div>
     </header>
 
     <div class="sync-row"><span id="account-label"></span><button id="logout-button" type="button">Sign out</button><span id="sync-status" role="status">Connecting…</span><a id="sign-in-again" href="/login" target="_blank" rel="noopener" hidden>Sign in again</a><button id="retry-sync" type="button" hidden>Retry</button></div>
@@ -48,7 +51,7 @@
           <p class="eyebrow">Daily rotation</p>
           <h2 id="active-day-title">Monday</h2>
         </div>
-        <div class="board-actions"><div class="range-badge" id="range-badge">Turns 1–3 of 15</div><button id="focus-toggle" type="button" aria-label="Full screen">⛶</button><button id="toggle-turn-view" type="button" aria-pressed="false">Expand</button><button id="reset-day" type="button" disabled>Reset this day</button></div>
+        <div class="board-actions"><div class="range-badge" id="range-badge">Turns 1–3 of 15</div><button id="toggle-turn-view" type="button" aria-pressed="false">Expand</button><button id="reset-day" type="button" disabled>Reset this day</button></div>
       </div>
 
       <div class="suggest-row">
