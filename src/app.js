@@ -105,7 +105,7 @@
   const svcGroup = svc => { const g = (state.serviceGroups || {})[svc]; return (g === 0 || g === 1) ? g : null; };
   const servicesOfGroup = i => (state.services || []).filter(s => svcGroup(s) === i);
   const rosterOf = id => (state.roster || []).find(r => r.id === id);
-  const techCan = (id, svc) => { const p = rosterOf(id); return !!(p && Array.isArray(p.can) && p.can.includes(svc)); };
+  const techCan = (id, svc) => { const p = rosterOf(id); if (!p || !Array.isArray(p.can) || p.can.length === 0) return true; return p.can.includes(svc); };
   const techSkill = id => { const p = rosterOf(id); return (p && (p.skill === 1 || p.skill === 2 || p.skill === 3)) ? p.skill : 2; };
   const suggestForService = svc => (state.staffByDay[state.activeDay] || [])
     .filter(p => p && p.id && techCan(p.id, svc))
@@ -461,7 +461,7 @@
     const list = suggestForService(svc);
     const body = list.length
       ? list.map((t, idx) => `<div class="sug-item ${idx === 0 ? 'top' : ''}"><span class="sug-left"><span class="sug-name">${escapeHtml(t.name)}${idx === 0 ? ' <span class="sug-tag">Suggested</span>' : ''}</span><span class="sug-sub"><span class="stars">${stars(t.skill)}</span></span></span><span class="sug-turns">${t.turns % 1 ? t.turns.toFixed(1) : t.turns} turns</span></div>`).join('')
-      : `<p class="picker-empty">No technician today can do "${escapeHtml(svc)}" — tick their services in Settings › Suggest skills.</p>`;
+      : `<p class="picker-empty">No technician working today for this service.</p>`;
     $("#suggest-list").innerHTML = body + `<button type="button" class="back" id="suggest-back">‹ Back</button>`;
   }
   const closeSuggest = () => { if (suggestPop) suggestPop.hidden = true; };
