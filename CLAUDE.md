@@ -69,7 +69,17 @@ Ship checklist (do all, in order) before considering a change done:
 ## Data model (`state`, stored as JSON in `board.data`)
 
 `{ activeDay, centerTurn, name, services:[str], staffByDay:{day:[{id,name}]},
-orderByDay:{day:[id]}, entries:{"day|id|turn": value}, halfTurns:bool, roster:[{id,name}] }`
+orderByDay:{day:[id]}, entries:{"day|id|turn": value}, halfTurns:bool, roster:[{id,name}],
+techColors:{ "<lowercased name>": "blue"|"gold"|"pink" } }`
+
+- **`techColors`** — optional per-technician type colour. **Keyed by lowercased name**
+  (not id) because the app matches techs by name everywhere, so a colour follows a
+  person across every day and onto the board. Set via the 3 dots next to each tech in
+  Settings (roster list + day list). On the board it tints ONLY that tech's name cell
+  and the `＋` of their empty cells (classes `ttype-blue/gold/pink` on the `<tr>`);
+  filled cells and everything else are untouched. Colours are fixed CSS classes, not
+  inline styles — the strict CSP blocks inline `style` attributes. `valid()` ignores
+  the field, so no server change was needed.
 
 - 15 turns per day (`TURN_COUNT`). `entries` key = `` `${day}|${staffId}|${turn}` ``.
 - Cell value uses `SPLIT = "␟"` (unit separator):

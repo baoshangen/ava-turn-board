@@ -137,3 +137,30 @@
 .app-shell.is-offline #sync-status{color:var(--warn-ink)}
 /* Sign out needs the network, so hide it rather than offer a button that fails. */
 .app-shell.is-offline #logout-button,.app-shell.is-offline #account-label{display:none}
+
+/* Technician TYPE colour (3 types). Tints ONLY the tech's name cell + the ＋ of
+   that tech's empty cells, on the board and in the Settings lists. Filled service
+   cells (green/red) and everything else stay exactly as they were. Colours are
+   fixed classes because the strict CSP blocks inline style attributes.
+   The name-cell rules carry :first-child so they outrank the Expand sticky rule. */
+.type-dots{display:flex;align-items:center;gap:8px;flex:none}
+.type-dot{width:28px;height:28px;padding:0;border-radius:50%;border:2px solid #fff;cursor:pointer;background:currentColor;box-shadow:0 0 0 1.5px currentColor;opacity:.4;transition:opacity .12s,transform .12s}
+.type-dot:hover{transform:scale(1.1);opacity:.85}
+.type-dot.on{opacity:1;box-shadow:0 0 0 2.5px currentColor}
+.type-dot.blue{color:#2563eb}.type-dot.gold{color:#d97706}.type-dot.pink{color:#db2777}
+
+/* Settings list rows */
+.editable-list .list-item.ttype-blue{background:#dbeafe;box-shadow:inset 0 0 0 2px #2563eb}
+.editable-list .list-item.ttype-gold{background:#fef3c7;box-shadow:inset 0 0 0 2px #d97706}
+.editable-list .list-item.ttype-pink{background:#fce7f3;box-shadow:inset 0 0 0 2px #db2777}
+
+/* Board: name cell (th + its tech dropdown) tinted, arrival number inked, ＋ coloured */
+.turn-table tbody tr.ttype-blue>th:first-child,.turn-table tbody tr.ttype-blue>th:first-child .tech-select{background-color:#dbeafe}
+.turn-table tbody tr.ttype-gold>th:first-child,.turn-table tbody tr.ttype-gold>th:first-child .tech-select{background-color:#fef3c7}
+.turn-table tbody tr.ttype-pink>th:first-child,.turn-table tbody tr.ttype-pink>th:first-child .tech-select{background-color:#fce7f3}
+.turn-table tbody tr.ttype-blue>th:first-child .arrival-number{color:#1e40af}
+.turn-table tbody tr.ttype-gold>th:first-child .arrival-number{color:#92400e}
+.turn-table tbody tr.ttype-pink>th:first-child .arrival-number{color:#9d174d}
+.turn-table tbody tr.ttype-blue .txt.add{color:#2563eb;font-weight:800}
+.turn-table tbody tr.ttype-gold .txt.add{color:#d97706;font-weight:800}
+.turn-table tbody tr.ttype-pink .txt.add{color:#db2777;font-weight:800}

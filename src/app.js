@@ -18,7 +18,8 @@
     entries: {},
     roster: [],
     groupNames: ["", ""],
-    serviceGroups: {}
+    serviceGroups: {},
+    techColors: {}
   });
 
   const loadState = () => {
@@ -32,9 +33,10 @@
   let state = loadState();
   // Existing selected turns stay attached to their technician when arrival order changes.
   if (!state.orderByDay) state.orderByDay = Object.fromEntries(DAYS.map(day => [day, state.staffByDay[day].map(p => p.id)]));
+  if (!state.techColors) state.techColors = {};
   let baseState = null;
   let revision = 0, ready = false, saving = false, pending = false, failed = false;
-  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name, halfTurns: state.halfTurns, roster: state.roster, groupNames: state.groupNames, serviceGroups: state.serviceGroups });
+  const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name, halfTurns: state.halfTurns, roster: state.roster, groupNames: state.groupNames, serviceGroups: state.serviceGroups, techColors: state.techColors });
   const status = message => { document.querySelector('#sync-status').textContent = message; };
   // Offline copy. loadState() has always READ storageKey(), but nothing ever wrote
   // it, so a dropped connection left the board empty. Written after every
@@ -110,6 +112,18 @@
   const $ = selector => document.querySelector(selector);
   const save = () => { pending = true; dirty = true; status('Saving…'); sync(); };
   const escapeHtml = value => String(value).replace(/[&<>"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+  // Technician type colour. Keyed by lowercased name (the app matches techs by name
+  // everywhere), so the colour follows a person across every day and the board.
+  // Values are colour keys; the actual colours live in styles.css (CSP blocks
+  // inline style attributes, so the row/cell get a `ttype-<key>` class instead).
+  const TYPE_KEYS = ['blue', 'gold', 'pink'];
+  const colorOf = name => (state.techColors && state.techColors[(name || '').trim().toLowerCase()]) || '';
+  const typeDots = name => {
+    const cur = colorOf(name);
+    return `<div class="type-dots">${TYPE_KEYS.map(k =>
+      `<button type="button" class="type-dot ${k} ${cur === k ? 'on' : ''}" data-color="${k}" data-tech-name="${escapeHtml(name)}" aria-pressed="${cur === k}" aria-label="${k} type for ${escapeHtml(name)}"></button>`
+    ).join('')}</div>`;
+  };
   const entryKey = (day, staffId, turn) => `${day}|${staffId}|${turn}`;
   // Cell states: "Pe" = single (full/green), "Pe␟" = one half (red),
   // "Pe␟Nc" = both halves (full/green). A half turn is NOT a complete turn.
@@ -257,7 +271,8 @@
       // Today's turn count sits where the ▾ arrow was; the empty "Choose tech" row keeps the arrow.
       const n = person ? techTurns(state.activeDay, person.id) : 0;
       const badge = person ? `<span class="turn-count ${n ? '' : 'zero'}" aria-label="${n} turns today">${n % 1 ? n.toFixed(1) : n}</span>` : '';
-      return `<tr ${person ? `data-sort="${escapeHtml(person.id)}"` : ''}><th scope="row"><div class="tech-cell ${person ? 'has-count' : ''}"><span class="arrival-number ${person ? 'drag-handle' : ''}" ${person ? 'aria-label="Hold to reorder"' : ''}>${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select>${badge}</div></th>${turns.map(turn => {
+      const tc = person ? colorOf(person.name) : '';
+      return `<tr class="${tc ? 'ttype-' + tc : ''}" ${person ? `data-sort="${escapeHtml(person.id)}"` : ''}><th scope="row"><div class="tech-cell ${person ? 'has-count' : ''}"><span class="arrival-number ${person ? 'drag-handle' : ''}" ${person ? 'aria-label="Hold to reorder"' : ''}>${index+1}</span><select class="service-select tech-select ${person ? 'has-service' : ''}" data-arrival="${index}" ${ready && !failed ? "" : "disabled"} aria-label="Technician arrival ${index+1}"><option value="">Choose tech</option>${staff.filter(p => p.id === person?.id || !order.includes(p.id)).map(p => `<option value="${escapeHtml(p.id)}" ${person?.id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select>${badge}</div></th>${turns.map(turn => {
         const key = person ? entryKey(state.activeDay, person.id, turn) : '';
         const alt = turn % 2 === 0 ? 'alt' : '';
         if (!person) return `<td class="${alt}"></td>`;
@@ -287,13 +302,13 @@
     const g0 = $("#group-0-name"), g1 = $("#group-1-name");
     if (g0) g0.value = (state.groupNames || [])[0] || "";
     if (g1) g1.value = (state.groupNames || [])[1] || "";
-    $("#roster-list").innerHTML = state.roster.length ? state.roster.map(person => `
-      <div class="list-item" data-sort="${escapeHtml(person.id)}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-roster="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
-    `).join("") : `<p class="empty-list">No technicians yet.</p>`;
+    $("#roster-list").innerHTML = state.roster.length ? state.roster.map(person => { const tc = colorOf(person.name); return `
+      <div class="list-item ${tc ? 'ttype-' + tc : ''}" data-sort="${escapeHtml(person.id)}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(person.name)}</span>${typeDots(person.name)}<button class="remove-button" type="button" data-remove-roster="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
+    `; }).join("") : `<p class="empty-list">No technicians yet.</p>`;
     const staff = state.staffByDay[settingsDay.value] || [];
-    $("#technician-list").innerHTML = staff.length ? staff.map(person => `
-      <div class="list-item" data-sort="${escapeHtml(person.id)}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(person.name)}</span><button class="remove-button" type="button" data-remove-tech="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
-    `).join("") : `<p class="empty-list">No technicians for this day.</p>`;
+    $("#technician-list").innerHTML = staff.length ? staff.map(person => { const tc = colorOf(person.name); return `
+      <div class="list-item ${tc ? 'ttype-' + tc : ''}" data-sort="${escapeHtml(person.id)}"><span class="drag-handle" aria-hidden="true">☰</span><span>${escapeHtml(person.name)}</span>${typeDots(person.name)}<button class="remove-button" type="button" data-remove-tech="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">Remove</button></div>
+    `; }).join("") : `<p class="empty-list">No technicians for this day.</p>`;
     const svcGroupSel = svc => {
       const g = svcGroup(svc);
       const opt = (v, label) => `<option value="${v}" ${String(g === null ? "" : g) === String(v) ? "selected" : ""}>${escapeHtml(label)}</option>`;
@@ -611,6 +626,18 @@
     const sk = event.target.closest(".sk-skill");
     if (sk) { const p = state.roster.find(r => r.id === sk.dataset.skSkill); if (p) { p.skill = Number(sk.value); save(); } }
   });
+  // Tap a colour dot next to a tech to set their type; tap the active one to clear.
+  // Delegated on the form so it covers both the roster list and the day list.
+  $("#settings-form").addEventListener("click", event => {
+    const dot = event.target.closest(".type-dot");
+    if (!dot || !ready || failed) return;
+    const name = (dot.dataset.techName || "").trim().toLowerCase();
+    if (!name) return;
+    if (!state.techColors) state.techColors = {};
+    if (state.techColors[name] === dot.dataset.color) delete state.techColors[name];
+    else state.techColors[name] = dot.dataset.color;
+    save(); renderSettings(); renderBoard();
+  });
 
   async function refreshPinSettings() {
     const stateEl = $("#pin-state"); if (!stateEl) return;
@@ -678,6 +705,7 @@
     if (!person || !confirm(`Remove ${person.name} from the roster and every day?`)) return;
     state.roster = state.roster.filter(p => p.id !== person.id);
     const nm = person.name.trim().toLowerCase();
+    if (state.techColors) delete state.techColors[nm];
     for (const day of DAYS) {
       const ids = new Set((state.staffByDay[day] || []).filter(p => p.id === person.id || (p.name || "").trim().toLowerCase() === nm).map(p => p.id));
       if (!ids.size) continue;
