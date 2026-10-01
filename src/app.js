@@ -36,6 +36,20 @@
   let revision = 0, ready = false, saving = false, pending = false, failed = false;
   const shared = () => ({ services: state.services, staffByDay: state.staffByDay, orderByDay: state.orderByDay, entries: state.entries, name: state.name, halfTurns: state.halfTurns, roster: state.roster, groupNames: state.groupNames, serviceGroups: state.serviceGroups });
   const status = message => { document.querySelector('#sync-status').textContent = message; };
+  // Offline copy. loadState() has always READ storageKey(), but nothing ever wrote
+  // it, so a dropped connection left the board empty. Written after every
+  // successful load/save; `cachedAt` stays out of shared() so it is never synced.
+  function cacheState() {
+    state.cachedAt = Date.now();
+    try { localStorage.setItem(storageKey(), JSON.stringify({ ...shared(), cachedAt: state.cachedAt })); } catch (_) {}
+  }
+  const offlineLabel = () => state.cachedAt
+    ? 'Offline — showing the board saved at ' + new Date(state.cachedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'Offline — no saved copy on this device yet';
+  function setOffline(on) {
+    document.querySelector('.app-shell').classList.toggle('is-offline', on);
+    if (on) status(offlineLabel());
+  }
   async function sync() {
     if (saving || failed) return;
     saving = true;
@@ -57,6 +71,8 @@
         if (response.status === 401) { $('#sign-in-again').hidden = false; throw new Error('Your session expired. Unsaved changes are still here. Tap Sign in again.'); }
         if (!response.ok) throw new Error('Could not save. Keep this page open and tap Retry.');
         revision = (await response.json()).revision; baseState = sent; dirty = false; renderBoard();
+        cacheState();
+        setOffline(false);
         status('Synced across devices');
       } else {
         const response = await fetch('/api/board?loc='+activeLoc, {cache:'no-store'});
@@ -68,11 +84,18 @@
         else if (!pending && remote.data && (!ready || remote.revision !== revision)) {
           revision = remote.revision; baseState = structuredClone(remote.data); Object.assign(state, remote.data); ready = true;
           renderTabs(); renderBoard(); if ($('#settings-dialog').open) renderSettings();
+          cacheState();
         }
+        setOffline(false);
         status('Synced across devices');
       }
     } catch (error) {
-      failed = true; status(error.message); $('#retry-sync').hidden = false;
+      failed = true;
+      // No network: show the saved board behind a clear banner instead of an
+      // error. Editing stays locked (the 3-way merge needs the server's base
+      // copy), and the 'online' listener below reconnects on its own.
+      if (!navigator.onLine) { setOffline(true); $('#retry-sync').hidden = true; }
+      else { setOffline(false); status(error.message); $('#retry-sync').hidden = false; }
     } finally {
       saving = false;
       document.querySelectorAll('#turn-body select, #add-technician, #add-service, .remove-button, #reset-board, #reset-day').forEach(el => el.disabled = !ready || failed || (el.matches('[data-key]') && !el.dataset.key));
@@ -486,10 +509,13 @@
     renderBoard();
   });
   // Recompute the collapse cell width when the window is resized/rotated.
+  // Debounced on purpose: rotating a tablet or raising the on-screen keyboard
+  // fires resize dozens of times a second and renderBoard() rebuilds the table,
+  // so this is the ONLY resize listener — don't add a second, undebounced one.
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { if (ready) renderBoard(); }, 150);
+    resizeTimer = setTimeout(() => { if (ready) renderBoard(); updateDayArrows(); }, 150);
   });
 
   // Full-screen focus: only hide the top chrome; keep the current view unchanged.
@@ -776,7 +802,15 @@
   window.addEventListener('focus', () => { if (!failed) sync(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !failed) sync(); });
   window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
-  window.addEventListener('resize', () => { renderBoard(); updateDayArrows(); });
-  setInterval(() => { if (ready && !pending && !saving && !failed && !document.querySelector('select:focus, input:focus')) sync(); }, 3000);
+  // Salon Wi-Fi drops and returns on its own, so reconnect without making
+  // anyone hunt for the Retry button.
+  window.addEventListener('online', () => { failed = false; $('#retry-sync').hidden = true; setOffline(false); status('Reconnecting…'); sync(); });
+  window.addEventListener('offline', () => { failed = true; setOffline(true); });
+  // Caches the app shell so the board still opens with no connection.
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  // Poll only while the board is actually on screen. A tablet left open all day
+  // used to fire ~14,400 requests; the visibilitychange listener above syncs the
+  // moment it comes back, so nothing is missed by pausing here.
+  setInterval(() => { if (!document.hidden && ready && !pending && !saving && !failed && !document.querySelector('select:focus, input:focus')) sync(); }, 3000);
   sync();
 })();

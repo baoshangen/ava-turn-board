@@ -38,11 +38,21 @@ Ship checklist (do all, in order) before considering a change done:
 ## Architecture
 
 - **`build.mjs`** bundles the Worker into a single self-contained `dist/worker.js`.
-  Static assets (`index.html`, `app.js`, `merge.js`, `sortable.min.js`,
+  Static assets (`index.html`, `app.js`, `merge.js`, `sortable.min.js`, `sw.js`,
   `styles.css`, `login.html`, `auth-ui.js`, `manifest.webmanifest`, icons) are
   **inlined into the bundle** via an `ASSETS` banner — no separate asset upload.
   **When adding a new static asset you must register it in `build.mjs`** and
   reference it from `index.html`.
+- **`src/sw.js`** — service worker for offline use. **HTML is network-first on
+  purpose**: cache-first would strand every tablet on a stale build, which cannot
+  be fixed from the salon. `/api/*`, `/login` and `/auth-ui.js` are never cached.
+  Served from `PUBLIC_ASSETS` (no session) so registration survives a lapsed login.
+  Bump `CACHE_VERSION` when a shell asset changes shape.
+- **Offline copy**: `cacheState()` in `app.js` writes the board to `localStorage`
+  after every successful load/save, and `loadState()` reads it at startup, so the
+  board opens with no connection behind an `.is-offline` banner. Viewing works
+  offline; **editing stays locked** because the 3-way merge needs the server's
+  base copy. `cachedAt` is deliberately kept out of `shared()` so it never syncs.
 - **`src/worker.js`** — request router. Serves inlined assets; `/api/account`,
   `/api/pin/*`, `/api/board` (GET/PUT with `?loc=`). `valid()` ignores unknown
   keys, so new `state` fields need no server change.

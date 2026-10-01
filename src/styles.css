@@ -129,3 +129,11 @@
 .auth-page{min-height:100dvh;display:grid;place-items:center;background:#f4f5f6;padding:20px}.auth-card{width:min(440px,100%);background:white;border:1px solid #ddd;border-radius:10px;padding:28px}.auth-brand{font-size:14px;font-weight:700;letter-spacing:.08em;color:#333}.auth-card h1{font-size:26px;line-height:1.25}.auth-card p{line-height:1.55}.auth-card form{display:grid;gap:10px;margin-top:24px}.auth-card label{display:block;font-size:15px;font-weight:600;margin-top:6px}.auth-card input{width:100%;min-height:46px;padding:10px;border:1px solid #a9afb8;border-radius:5px}.auth-card button{background:var(--accent);color:#fff;font-weight:650;min-height:46px}.auth-card a{color:var(--accent-deep);font-size:14px}.auth-card #auth-status{font-size:14px;margin:6px 0;min-height:22px}.auth-card [hidden]{display:none}.account-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.account-tools a{font-size:14px;color:#111}.sync-row{flex-wrap:wrap}#logout-button{font-size:14px;padding:6px 10px}
 
 .auth-card .remember-label{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:400;line-height:1.5;margin:8px 0}.auth-card .remember-label input{width:18px;height:18px;min-height:18px;flex:none;accent-color:var(--accent)}.auth-card .remember-label[hidden]{display:none}
+
+/* Offline state: the saved board stays readable behind a warm banner. Editing is
+   left locked by app.js because the 3-way merge needs the server's base copy. */
+:root{--warn-bg:#fef6e0;--warn-line:#e8c56a;--warn-ink:#7a5600}
+.app-shell.is-offline .sync-row{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:6px;padding:9px 12px;color:var(--warn-ink);font-weight:600}
+.app-shell.is-offline #sync-status{color:var(--warn-ink)}
+/* Sign out needs the network, so hide it rather than offer a button that fails. */
+.app-shell.is-offline #logout-button,.app-shell.is-offline #account-label{display:none}

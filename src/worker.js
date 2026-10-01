@@ -3,7 +3,9 @@ const json = (data, status=200) => Response.json(data,{status,headers:{'Cache-Co
 const db = env => { if (!env.DB) throw new Error('Database unavailable'); return env.DB; };
 const assetBody = a => a.bin ? Uint8Array.from(atob(a.body), c => c.charCodeAt(0)) : a.body;
 // Static assets served WITHOUT login (needed for styling and PWA install).
-const PUBLIC_ASSETS = ['/styles.css', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
+// '/sw.js' is public on purpose: if the session lapses, a redirect to /login would
+// break service-worker registration and updates. It holds no account data.
+const PUBLIC_ASSETS = ['/styles.css', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/sw.js'];
 function valid(data) {
   const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   return data && Array.isArray(data.services) && data.services.length <= 100 && data.services.every(s=>typeof s==='string' && s.length<=200) && data.staffByDay && data.orderByDay && data.entries && typeof data.entries==='object' && !Array.isArray(data.entries) && Object.values(data.entries).every(s=>typeof s==='string' && s.length<=200) && days.every(day=>Array.isArray(data.staffByDay[day]) && data.staffByDay[day].length<=100 && data.staffByDay[day].every(p=>p && typeof p.id==='string' && typeof p.name==='string' && p.name.length<=200) && Array.isArray(data.orderByDay[day]) && data.orderByDay[day].length<=100 && data.orderByDay[day].every(id=>id===null || typeof id==='string'));

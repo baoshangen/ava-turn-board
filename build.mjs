@@ -15,6 +15,7 @@ for (const [file, type] of [
   ['app.js', 'text/javascript; charset=utf-8'],
   ['merge.js', 'text/javascript; charset=utf-8'],
   ['sortable.min.js', 'text/javascript; charset=utf-8'],
+  ['sw.js', 'text/javascript; charset=utf-8'],
   ['styles.css', 'text/css; charset=utf-8'],
   ['manifest.webmanifest', 'application/manifest+json; charset=utf-8'],
 ]) assets['/' + file] = { body: await readFile('src/' + file, 'utf8'), type };
