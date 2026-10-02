@@ -505,14 +505,31 @@
     $("#suggest-title").textContent = svc;
     const list = suggestForService(svc);
     const body = list.length
-      ? list.map((t, idx) => `<div class="sug-item ${idx === 0 ? 'top' : ''}"><span class="sug-left"><span class="sug-name">${escapeHtml(t.name)}${idx === 0 ? ' <span class="sug-tag">Suggested</span>' : ''}</span><span class="sug-sub"><span class="stars">${stars(t.skill)}</span></span></span><span class="sug-turns">${t.turns % 1 ? t.turns.toFixed(1) : t.turns} turns</span></div>`).join('')
+      ? `<p class="sug-hint">Tap a technician to add ${escapeHtml(svc)} to their next turn.</p>` + list.map((t, idx) => `<button type="button" class="sug-item ${idx === 0 ? 'top' : ''}" data-sug-id="${escapeHtml(t.id)}" data-sug-name="${escapeHtml(t.name)}" data-sug-svc="${escapeHtml(svc)}"><span class="sug-left"><span class="sug-name">${escapeHtml(t.name)}${idx === 0 ? ' <span class="sug-tag">Suggested</span>' : ''}</span><span class="sug-sub"><span class="stars">${stars(t.skill)}</span></span></span><span class="sug-turns">${t.turns % 1 ? t.turns.toFixed(1) : t.turns} turns</span></button>`).join('')
       : `<p class="picker-empty">No technician working today for this service.</p>`;
     $("#suggest-list").innerHTML = body + `<button type="button" class="back" id="suggest-back">‹ Back</button>`;
+  }
+  // Tapping a suggested tech drops the service into their NEXT EMPTY turn today, placing
+  // them on the board first if they weren't already shown, so it appears right away.
+  function assignFromSuggest(id, name, svc) {
+    if (!ready || failed || !id || !svc) return;
+    const day = state.activeDay;
+    if (!(state.staffByDay[day] || []).some(p => p && p.id === id)) return;
+    state.orderByDay[day] = state.orderByDay[day] || [];
+    if (!state.orderByDay[day].includes(id)) state.orderByDay[day].push(id);
+    let turn = 0;
+    for (let t = 1; t <= TURN_COUNT; t++) { if (!(state.entries[entryKey(day, id, t)] || '')) { turn = t; break; } }
+    if (!turn) { showToast(`${name} is full for today`); return; }
+    state.entries[entryKey(day, id, turn)] = svc;
+    save(); renderBoard(); closeSuggest();
+    showToast(`${svc} → ${name} · turn ${turn}`);
   }
   const closeSuggest = () => { if (suggestPop) suggestPop.hidden = true; };
   $("#suggest-list").addEventListener("click", event => {
     const svcBtn = event.target.closest(".sug-svc");
     if (svcBtn) { showSuggestFor(svcBtn.dataset.svc); return; }
+    const techBtn = event.target.closest(".sug-item");
+    if (techBtn) { assignFromSuggest(techBtn.dataset.sugId, techBtn.dataset.sugName, techBtn.dataset.sugSvc); return; }
     if (event.target.closest("#suggest-back")) openSuggest(suggestGroup);
   });
   $("#suggest-0").addEventListener("click", () => openSuggest(0));

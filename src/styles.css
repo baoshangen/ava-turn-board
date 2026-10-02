@@ -46,6 +46,9 @@
 .suggest-btn:active{background:var(--accent-deep)}
 #suggest-list{overflow-y:auto}
 .sug-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+button.sug-item{width:100%;text-align:left;font:inherit;color:inherit;background:#fff;cursor:pointer}
+button.sug-item:hover{border-color:var(--accent)}
+button.sug-item:active{background:var(--accent-soft)}
 .sug-item.top{background:var(--green);border-color:var(--accent)}
 .sug-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .sug-item.top .sug-name{font-weight:800}
