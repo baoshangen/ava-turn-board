@@ -117,7 +117,10 @@
   // Values are colour keys; the actual colours live in styles.css (CSP blocks
   // inline style attributes, so the row/cell get a `ttype-<key>` class instead).
   const TYPE_KEYS = ['blue', 'gold', 'pink'];
-  const colorOf = name => (state.techColors && state.techColors[(name || '').trim().toLowerCase()]) || '';
+  // Returns '' for anything not in TYPE_KEYS. techColors is synced shared data, so a
+  // malicious/buggy client could store an arbitrary string; constraining it here keeps
+  // every render site (board rows, Settings lists) from emitting it into a class attr.
+  const colorOf = name => { const c = (state.techColors && state.techColors[(name || '').trim().toLowerCase()]) || ''; return TYPE_KEYS.includes(c) ? c : ''; };
   const typeDots = name => {
     const cur = colorOf(name);
     return `<div class="type-dots">${TYPE_KEYS.map(k =>
