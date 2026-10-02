@@ -525,10 +525,16 @@
     if (!(state.staffByDay[day] || []).some(p => p && p.id === id)) return;
     state.orderByDay[day] = state.orderByDay[day] || [];
     if (!state.orderByDay[day].includes(id)) state.orderByDay[day].push(id);
-    let turn = 0;
-    for (let t = 1; t <= TURN_COUNT; t++) { if (!(state.entries[entryKey(day, id, t)] || '')) { turn = t; break; } }
+    // If the tech has a pending half turn (one heart filled, one empty), complete THAT
+    // cell's empty half so the service lands in the same turn — matching tapping the cell
+    // by hand. Only when there's no pending half do we start a new full turn.
+    let turn = 0, fillHalf = false;
+    for (let t = 1; t <= TURN_COUNT; t++) { if (isHalf(state.entries[entryKey(day, id, t)] || '')) { turn = t; fillHalf = true; break; } }
+    if (!turn) for (let t = 1; t <= TURN_COUNT; t++) { if (!(state.entries[entryKey(day, id, t)] || '')) { turn = t; break; } }
     if (!turn) { showToast(`${name} is full for today`); return; }
-    state.entries[entryKey(day, id, turn)] = svc;
+    const key = entryKey(day, id, turn);
+    if (fillHalf) { const [a, b] = svcParts(state.entries[key] || ''); state.entries[key] = a ? a + SPLIT + svc : svc + SPLIT + b; }
+    else state.entries[key] = svc;
     save(); renderBoard(); closeSuggest();
     showToast(`${svc} → ${name} · turn ${turn}`);
   }
