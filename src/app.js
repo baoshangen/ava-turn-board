@@ -140,7 +140,8 @@
   const turnValue = v => isComplete(v) ? 1 : (isHalf(v) ? 0.5 : 0);
   const techTurns = (day, id) => { let n = 0; for (let t = 1; t <= TURN_COUNT; t++) n += turnValue(state.entries[entryKey(day, id, t)] || ''); return n; };
   // Suggestion: pick group → service; recommend technicians who CAN do that service,
-  // working today, ranked FAIRLY: fewest turns first, higher skill breaks ties.
+  // working today, ranked by the rotation: fewest turns first, then whoever is earlier
+  // in the board's turn order (whose turn is next), and skill only as a final tiebreak.
   const groupLabel = i => ((state.groupNames || [])[i] || `Suggest ${i + 1}`);
   const svcGroup = svc => { const g = (state.serviceGroups || {})[svc]; return (g === 0 || g === 1) ? g : null; };
   const servicesOfGroup = i => (state.services || []).filter(s => svcGroup(s) === i);
@@ -150,11 +151,18 @@
   const rosterFor = (id, name) => rosterOf(id) || rosterByName(name);
   const techCan = (id, svc) => { const p = rosterOf(id); if (!p || !Array.isArray(p.can) || p.can.length === 0) return true; return p.can.includes(svc); };
   const techSkill = id => { const p = rosterOf(id); return (p && (p.skill === 1 || p.skill === 2 || p.skill === 3)) ? p.skill : 2; };
-  const suggestForService = svc => (state.staffByDay[state.activeDay] || [])
-    .filter(p => p && p.id)
-    .map(p => { const r = rosterFor(p.id, p.name); const can = r && Array.isArray(r.can) ? r.can : null; const skill = (r && (r.skill === 1 || r.skill === 2 || r.skill === 3)) ? r.skill : 2; return { id: p.id, name: p.name || "", turns: techTurns(state.activeDay, p.id), skill, canDo: (!can || can.length === 0) ? true : can.includes(svc) }; })
-    .filter(t => t.canDo)
-    .sort((a, b) => a.turns - b.turns || b.skill - a.skill);
+  const suggestForService = svc => {
+    const day = state.activeDay;
+    const order = state.orderByDay[day] || [];
+    // Position in the board's arrival order; techs not yet placed sort after placed ones.
+    const arrivalIdx = id => { const i = order.indexOf(id); return i === -1 ? Number.MAX_SAFE_INTEGER : i; };
+    return (state.staffByDay[day] || [])
+      .filter(p => p && p.id)
+      .map(p => { const r = rosterFor(p.id, p.name); const can = r && Array.isArray(r.can) ? r.can : null; const skill = (r && (r.skill === 1 || r.skill === 2 || r.skill === 3)) ? r.skill : 2; return { id: p.id, name: p.name || "", turns: techTurns(day, p.id), skill, canDo: (!can || can.length === 0) ? true : can.includes(svc) }; })
+      .filter(t => t.canDo)
+      // Fewest turns → whoever is earlier in the board's turn order → higher skill last.
+      .sort((a, b) => a.turns - b.turns || arrivalIdx(a.id) - arrivalIdx(b.id) || b.skill - a.skill);
+  };
   // A turn column is "done" when every assigned technician has a COMPLETE (green) turn.
   const turnComplete = (day, turn) => {
     const assigned = (state.orderByDay[day] || []).filter(id => id);
