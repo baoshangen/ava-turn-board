@@ -172,7 +172,24 @@
     const assigned = (state.orderByDay[day] || []).filter(id => id);
     return assigned.length > 0 && assigned.every(id => isComplete(state.entries[entryKey(day, id, turn)] || ""));
   };
-  const visibleTurns = () => expandedTurns ? Array.from({length:TURN_COUNT}, (_, i) => i + 1) : matchMedia('(max-width: 600px)').matches ? [state.centerTurn === 14 ? 14 : state.centerTurn-1, state.centerTurn === 14 ? 15 : state.centerTurn] : [state.centerTurn - 1, state.centerTurn, state.centerTurn + 1];
+  // Highest turn column (1..TURN_COUNT) that holds any service today; 0 if none.
+  // Key-scan (not orderByDay) so it still counts cells of a tech no longer placed.
+  const lastFilledTurn = day => {
+    let last = 0; const prefix = day + "|";
+    for (const k of Object.keys(state.entries))
+      if (k.startsWith(prefix) && hasService(state.entries[k])) last = Math.max(last, Number(k.split("|")[2]));
+    return last;
+  };
+  // Expand no longer dumps all 15 turns: it shows a tidy window that starts at 5
+  // columns and grows to keep ~2 empty columns ahead of the furthest booked turn
+  // (fill turn 4 → turn 6 opens; fill turn 5 → turn 7). Collapse is unchanged.
+  const visibleTurns = () => {
+    if (expandedTurns) {
+      const n = Math.min(TURN_COUNT, Math.max(5, lastFilledTurn(state.activeDay) + 2));
+      return Array.from({length: n}, (_, i) => i + 1);
+    }
+    return matchMedia('(max-width: 600px)').matches ? [state.centerTurn === 14 ? 14 : state.centerTurn-1, state.centerTurn === 14 ? 15 : state.centerTurn] : [state.centerTurn - 1, state.centerTurn, state.centerTurn + 1];
+  };
 
   function showToast(message) {
     const toast = $("#toast");
@@ -254,14 +271,13 @@
     $('#toggle-turn-view').textContent = expandedTurns ? 'Collapse' : 'Expand';
     $('#toggle-turn-view').setAttribute('aria-pressed', String(expandedTurns));
     $('.turn-controls').hidden = expandedTurns;
-    // Collapse keeps 2–3 turns but stretches those cells to fill the width (no
-    // blank on the right); the tech column stays fixed. Expand keeps 56px squares.
+    // Both views stretch the visible turn columns to fill the width (the tech
+    // column stays fixed at TECH_COL); Expand just reveals more of them and the
+    // columns shrink as more open. Floor of 56px lets it scroll only if a nearly
+    // full day pushes the window toward all 15 columns on a narrow screen.
     const table = $('.turn-table');
-    if (expandedTurns) table.style.removeProperty('--tw');
-    else {
-      const wrapW = ($('.table-wrap')?.clientWidth) || window.innerWidth;
-      table.style.setProperty('--tw', Math.max(56, Math.floor((wrapW - TECH_COL) / turns.length)) + 'px');
-    }
+    const wrapW = ($('.table-wrap')?.clientWidth) || window.innerWidth;
+    table.style.setProperty('--tw', Math.max(56, Math.floor((wrapW - TECH_COL) / turns.length)) + 'px');
     const staff = state.staffByDay[state.activeDay] || [];
     $("#active-day-title").textContent = state.activeDay;
     $("#reset-day").disabled = !ready || failed;
