@@ -651,7 +651,10 @@
     const chk = event.target.closest(".sk-can");
     if (chk) {
       const p = state.roster.find(r => r.id === chk.dataset.skId); if (!p) return;
-      if (!Array.isArray(p.can)) p.can = [];
+      // An empty `can` means "can do everything" (every box shown ticked). Unticking one
+      // from that state must first materialize the full list, otherwise filtering an empty
+      // array is a no-op and the uncheck never sticks.
+      if (!Array.isArray(p.can) || p.can.length === 0) p.can = state.services.slice();
       const svc = chk.dataset.skSvc;
       if (chk.checked) { if (!p.can.includes(svc)) p.can.push(svc); }
       else p.can = p.can.filter(s => s !== svc);
