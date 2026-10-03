@@ -872,7 +872,16 @@
   window.addEventListener('online', () => { failed = false; $('#retry-sync').hidden = true; setOffline(false); status('Reconnecting…'); sync(); });
   window.addEventListener('offline', () => { failed = true; setOffline(true); });
   // Caches the app shell so the board still opens with no connection.
-  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  if ('serviceWorker' in navigator) {
+    // When a freshly deployed worker takes control, reload once so the new app.js is
+    // actually used instead of the stale cached one. Guarded so first install and
+    // repeat fires don't loop.
+    const hadController = !!navigator.serviceWorker.controller; let swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController && !swReloaded) { swReloaded = true; location.reload(); }
+    });
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  }
   // Poll only while the board is actually on screen. A tablet left open all day
   // used to fire ~14,400 requests; the visibilitychange listener above syncs the
   // moment it comes back, so nothing is missed by pausing here.
