@@ -153,15 +153,19 @@
   const techSkill = id => { const p = rosterOf(id); return (p && (p.skill === 1 || p.skill === 2 || p.skill === 3)) ? p.skill : 2; };
   const suggestForService = svc => {
     const day = state.activeDay;
-    const order = state.orderByDay[day] || [];
-    // Position in the board's arrival order; techs not yet placed sort after placed ones.
-    const arrivalIdx = id => { const i = order.indexOf(id); return i === -1 ? Number.MAX_SAFE_INTEGER : i; };
-    return (state.staffByDay[day] || [])
-      .filter(p => p && p.id)
-      .map(p => { const r = rosterFor(p.id, p.name); const can = r && Array.isArray(r.can) ? r.can : null; const skill = (r && (r.skill === 1 || r.skill === 2 || r.skill === 3)) ? r.skill : 2; return { id: p.id, name: p.name || "", turns: techTurns(day, p.id), skill, canDo: (!can || can.length === 0) ? true : can.includes(svc) }; })
+    const staff = state.staffByDay[day] || [];
+    const onBoard = id => staff.find(p => p && p.id === id);
+    // Suggest ONLY technicians actually placed on the board (given an arrival slot),
+    // not everyone merely scheduled today. Ray's rule: if the board shows just TJ and
+    // Tyson, suggest only TJ and Tyson. orderByDay holds the placed ids in arrival
+    // order (renderBoard compacts it), so the empty "Choose tech" row — an id that is
+    // null or no longer in staff — is skipped, and the map index IS the arrival order.
+    return (state.orderByDay[day] || [])
+      .filter(id => id && onBoard(id))
+      .map((id, idx) => { const p = onBoard(id); const r = rosterFor(p.id, p.name); const can = r && Array.isArray(r.can) ? r.can : null; const skill = (r && (r.skill === 1 || r.skill === 2 || r.skill === 3)) ? r.skill : 2; return { id: p.id, name: p.name || "", turns: techTurns(day, p.id), skill, canDo: (!can || can.length === 0) ? true : can.includes(svc), idx }; })
       .filter(t => t.canDo)
-      // Fewest turns → whoever is earlier in the board's turn order → higher skill last.
-      .sort((a, b) => a.turns - b.turns || arrivalIdx(a.id) - arrivalIdx(b.id) || b.skill - a.skill);
+      // Fewest turns → earlier arrival on the board → higher skill last.
+      .sort((a, b) => a.turns - b.turns || a.idx - b.idx || b.skill - a.skill);
   };
   // A turn column is "done" when every assigned technician has a COMPLETE (green) turn.
   const turnComplete = (day, turn) => {
@@ -514,7 +518,7 @@
     const list = suggestForService(svc);
     const body = list.length
       ? `<p class="sug-hint">Tap a technician to add ${escapeHtml(svc)} to their next turn.</p>` + list.map((t, idx) => `<button type="button" class="sug-item ${idx === 0 ? 'top' : ''}" data-sug-id="${escapeHtml(t.id)}" data-sug-name="${escapeHtml(t.name)}" data-sug-svc="${escapeHtml(svc)}"><span class="sug-left"><span class="sug-name">${escapeHtml(t.name)}${idx === 0 ? ' <span class="sug-tag">Suggested</span>' : ''}</span><span class="sug-sub"><span class="stars">${stars(t.skill)}</span></span></span><span class="sug-turns">${t.turns % 1 ? t.turns.toFixed(1) : t.turns} turns</span></button>`).join('')
-      : `<p class="picker-empty">No technician working today for this service.</p>`;
+      : `<p class="picker-empty">No technician on the board for this service — add them to the board first.</p>`;
     $("#suggest-list").innerHTML = body + `<button type="button" class="back" id="suggest-back">‹ Back</button>`;
   }
   // Tapping a suggested tech drops the service into their NEXT EMPTY turn today, placing
